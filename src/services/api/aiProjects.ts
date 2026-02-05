@@ -33,22 +33,27 @@ export interface CreateAIProjectData {
 
 export const aiProjectsService = {
   async create(data: CreateAIProjectData): Promise<AIProject> {
+    await feathersClient.authenticate()
     return await feathersClient.service('ai-projects').create(data)
   },
 
   async find(query?: Params<AIProjectQuery>): Promise<{ data: AIProject[]; total?: number; limit?: number; skip?: number }> {
+    await feathersClient.authenticate()
     return await feathersClient.service('ai-projects').find({ query: query as Query })
   },
 
   async get(id: string): Promise<AIProject> {
+    await feathersClient.authenticate()
     return await feathersClient.service('ai-projects').get(id)
   },
 
   async patch(id: string, data: Partial<AIProject>): Promise<AIProject> {
+    await feathersClient.authenticate()
     return await feathersClient.service('ai-projects').patch(id, data)
   },
 
   async remove(id: string): Promise<AIProject> {
+    await feathersClient.authenticate()
     return await feathersClient.service('ai-projects').remove(id)
   },
 

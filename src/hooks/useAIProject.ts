@@ -1,22 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { aiProjectsService, AIProject, CreateAIProjectData } from '@/services/api/aiProjects'
+import { AIProject, aiProjectsService, CreateAIProjectData } from '@/services/api/aiProjects'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 export function useAIProject(projectId?: string) {
   const [project, setProject] = useState<AIProject | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Refs to prevent stale closures and multiple calls
+  const currentProjectIdRef = useRef(projectId)
+  const loadingRef = useRef(false)
 
-  // Load project if projectId is provided
+  
   useEffect(() => {
     if (projectId) {
       loadProject(projectId)
     }
   }, [projectId])
 
-  // Listen for real-time project updates
+  
   useEffect(() => {
     if (!project) return
 
@@ -24,7 +28,6 @@ export function useAIProject(projectId?: string) {
       if (updatedProject._id === project._id) {
         setProject(updatedProject)
         
-        // Show toast for status changes
         if (updatedProject.status === 'ready' && project.status === 'generating') {
           toast.success('Project generated successfully!')
         } else if (updatedProject.status === 'error' && project.status === 'generating') {
@@ -45,27 +48,48 @@ export function useAIProject(projectId?: string) {
     }
   }, [project])
 
-  const loadProject = async (id: string) => {
+  const loadProject = useCallback(async (id: string) => {
+    // Prevent multiple simultaneous calls
+    if (loadingRef.current || !id) return
+    
     try {
+      loadingRef.current = true
       setLoading(true)
       setError(null)
+      
       const loadedProject = await aiProjectsService.get(id)
-      setProject(loadedProject)
+      
+      // Only update if we're still on the same project
+      if (currentProjectIdRef.current === id) {
+        setProject(loadedProject)
+      }
     } catch (err) {
-      console.error('Failed to load project:', err)
-      setError('Failed to load project')
-      toast.error('Failed to load project')
+      // Only show error if we're still on the same project
+      if (currentProjectIdRef.current === id) {
+        console.error('Failed to load project:', err)
+        setError('Failed to load project')
+        toast.error('Failed to load project')
+      }
     } finally {
-      setLoading(false)
+      loadingRef.current = false
+      if (currentProjectIdRef.current === id) {
+        setLoading(false)
+      }
     }
-  }
+  }, [])
 
-  const createProject = async (data: CreateAIProjectData): Promise<AIProject | null> => {
+  const createProject = useCallback(async (data: CreateAIProjectData): Promise<AIProject | null> => {
+    // Prevent multiple simultaneous calls
+    if (loadingRef.current) return null
+    
     try {
+      loadingRef.current = true
       setLoading(true)
       setError(null)
+      
       const newProject = await aiProjectsService.create(data)
       setProject(newProject)
+      currentProjectIdRef.current = newProject._id
       toast.success('Project creation started!')
       return newProject
     } catch (err) {
@@ -74,9 +98,10 @@ export function useAIProject(projectId?: string) {
       toast.error('Failed to create project')
       return null
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
-  }
+  }, [])
 
   const updateProject = async (id: string, data: Partial<AIProject>): Promise<AIProject | null> => {
     try {

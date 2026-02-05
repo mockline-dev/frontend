@@ -2,10 +2,10 @@
 
 import { UserMenu } from '@/components/custom/UserMenu';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 const quickPrompts = [
   { icon: '✈️', label: 'Travel/Planner App' },
@@ -19,12 +19,6 @@ export function InitialScreen() {
   const router = useRouter();
   const [promptValue, setPromptValue] = useState('');
 
-  // Redirect authenticated users to dashboard
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, loading, router]);
 
   const handlePromptClick = (label: string) => {
     const prompt = `Build a ${label}`;
@@ -42,10 +36,8 @@ export function InitialScreen() {
 
   const handleStart = (prompt: string) => {
     if (isAuthenticated) {
-      // User is authenticated, go directly to workspace
       router.push(`/workspace?prompt=${encodeURIComponent(prompt)}`);
     } else {
-      // User is not authenticated, save prompt and redirect to login
       setSavedPrompt(prompt);
       router.push('/auth/login');
     }
@@ -55,7 +47,6 @@ export function InitialScreen() {
     router.push(page === 'dashboard' ? '/dashboard' : '/workspace');
   };
 
-  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-100 via-blue-50 to-amber-50 flex items-center justify-center">
@@ -79,13 +70,35 @@ export function InitialScreen() {
           </div>
           <span className="font-semibold text-gray-900 text-lg">Mockline</span>
         </div>
-{isAuthenticated && (
-          <UserMenu 
-            currentPage="workspace" 
-            onNavigate={handleNavigate}
-            onLogout={logout}
-          />
-        )}
+        
+        <div className="flex items-center gap-4">
+          {isAuthenticated ? (
+            <>
+              <Button
+                onClick={() => handleNavigate('dashboard')}
+                variant="outline"
+                size="sm"
+                className="bg-white/80 backdrop-blur-sm border-white/50 hover:bg-white/90"
+              >
+                Dashboard
+              </Button>
+              <UserMenu 
+                currentPage="home" 
+                onNavigate={handleNavigate}
+                onLogout={logout}
+              />
+            </>
+          ) : (
+            <Button
+              onClick={() => router.push('/auth/login')}
+              variant="outline"
+              size="sm"
+              className="bg-white/80 backdrop-blur-sm border-white/50 hover:bg-white/90"
+            >
+              Sign In
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}

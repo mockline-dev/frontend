@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Terminal as TerminalIcon, X, Wifi, WifiOff } from 'lucide-react';
+import { LogEntry, useProjectLogs } from '@/hooks/useProjectLogs';
+import { BrushCleaning, Terminal as TerminalIcon, Wifi, WifiOff, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { useProjectLogs, LogEntry } from '@/hooks/useProjectLogs';
 
 interface TerminalProps {
   isOpen: boolean;
@@ -73,15 +73,6 @@ export function Terminal({ isOpen, onClose, projectId }: TerminalProps) {
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-gray-500 hover:text-gray-900"
-            onClick={clearLogs}
-            title="Clear logs"
-          >
-            <X className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-gray-500 hover:text-gray-900"
             onClick={onClose}
             title="Close terminal"
           >
@@ -91,7 +82,16 @@ export function Terminal({ isOpen, onClose, projectId }: TerminalProps) {
       </div>
 
       {/* Logs */}
-      <div className="flex-1 overflow-y-auto p-3 font-mono text-xs bg-gray-900">
+      <div className="flex-1 overflow-y-auto p-3 font-mono text-xs bg-gray-900 relative">
+      <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-gray-500 hover:text-gray-900 absolute bottom-4 right-4 cursor-pointer hover:bg-gray-800"
+            onClick={clearLogs}
+            title="Clear logs"
+          >
+            <BrushCleaning className="w-3.5 h-3.5" color='red' />
+          </Button>
         {loading ? (
           <div className="text-gray-400 text-center py-8">
             Loading logs...

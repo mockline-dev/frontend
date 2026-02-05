@@ -1,48 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Define protected routes that require authentication
 const protectedRoutes = ['/dashboard', '/workspace']
 
-// Define auth routes that should redirect authenticated users
 const authRoutes = ['/auth/login', '/auth/signup']
 
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Get JWT token from cookies
   const jwtToken = request.cookies.get('jwt')?.value
   const currentUser = request.cookies.get('currentUser')?.value
   
-  // Check if user is authenticated (has both JWT and user data)
   const isAuthenticated = !!(jwtToken && currentUser)
   
-  // Handle protected routes
+  // Handle protected routes - redirect unauthenticated users to root
   if (protectedRoutes.some(route => pathname.startsWith(route))) {
     if (!isAuthenticated) {
-      // Redirect to home page for unauthenticated users
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
   
-  // Handle auth routes (redirect authenticated users away from login/signup)
+  // Handle auth routes - redirect authenticated users to dashboard
   if (authRoutes.some(route => pathname.startsWith(route))) {
     if (isAuthenticated) {
-      // Redirect authenticated users to dashboard
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
   
-  // Add security headers
+  // Handle root route - allow both authenticated and unauthenticated users
+  // Authenticated users can access root page (landing/marketing page) if they want
+  // No redirect needed - let them stay on root if they choose to
+  
   const response = NextResponse.next()
   
-  // Security headers
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   
-  // CSP header for additional security
   response.headers.set(
     'Content-Security-Policy',
     "default-src 'self'; " +

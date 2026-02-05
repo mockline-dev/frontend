@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { aiFilesService, AIFile } from '@/services/api/files'
+import { AIFile, aiFilesService } from '@/services/api/files'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { toast } from 'sonner'
 
 export interface FileNode {
@@ -34,6 +34,49 @@ export function useProjectFiles(projectId?: string): UseProjectFilesReturn {
   const [error, setError] = useState<string | null>(null)
   const [selectedFileContent, setSelectedFileContent] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)
+  
+  // Use ref to track current projectId to prevent stale closures
+  const currentProjectIdRef = useRef(projectId)
+  const loadingRef = useRef(false)
+
+  const loadFiles = useCallback(async () => {
+    const currentProjectId = currentProjectIdRef.current
+    
+    // Prevent multiple simultaneous calls
+    if (!currentProjectId || loadingRef.current) return
+
+    try {
+      loadingRef.current = true
+      setLoading(true)
+      setError(null)
+      
+      const projectFiles = await aiFilesService.find({
+        query: { projectId: currentProjectId }
+      })
+      
+      // Only update if we're still on the same project
+      if (currentProjectIdRef.current === currentProjectId) {
+        setFiles(projectFiles.data || [])
+      }
+    } catch (err) {
+      // Only show error if we're still on the same project
+      if (currentProjectIdRef.current === currentProjectId) {
+        console.error('Failed to load project files:', err)
+        setError('Failed to load project files')
+        toast.error('Failed to load project files')
+      }
+    } finally {
+      loadingRef.current = false
+      if (currentProjectIdRef.current === currentProjectId) {
+        setLoading(false)
+      }
+    }
+  }, []) // No dependencies to prevent recreation
+
+  // Update ref when projectId changes
+  useEffect(() => {
+    currentProjectIdRef.current = projectId
+  }, [projectId])
 
   // Load files when projectId changes
   useEffect(() => {
@@ -42,8 +85,10 @@ export function useProjectFiles(projectId?: string): UseProjectFilesReturn {
     } else {
       setFiles([])
       setFileTree([])
+      setSelectedFileContent(null)
+      setError(null)
     }
-  }, [projectId])
+  }, [projectId]) // Only depend on projectId
 
   // Convert flat file list to tree structure
   useEffect(() => {
@@ -54,29 +99,9 @@ export function useProjectFiles(projectId?: string): UseProjectFilesReturn {
       setFileTree([])
     }
   }, [files])
+  
 
-  const loadFiles = async () => {
-    if (!projectId) return
-
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const projectFiles = await aiFilesService.find({
-        query: { projectId }
-      })
-      
-      setFiles(projectFiles.data || [])
-    } catch (err) {
-      console.error('Failed to load project files:', err)
-      setError('Failed to load project files')
-      toast.error('Failed to load project files')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadFileContent = async (file: AIFile) => {
+  const loadFileContent = useCallback(async (file: AIFile) => {
     try {
       setLoadingContent(true)
       setSelectedFileContent(null)
@@ -97,11 +122,13 @@ export function useProjectFiles(projectId?: string): UseProjectFilesReturn {
     } finally {
       setLoadingContent(false)
     }
-  }
+  }, [])
 
-  const refreshFiles = async () => {
-    await loadFiles()
-  }
+  const refreshFiles = useCallback(async () => {
+    if (currentProjectIdRef.current) {
+      await loadFiles()
+    }
+  }, [loadFiles])
 
   return {
     files,

@@ -17,7 +17,7 @@ import {
   TestTube2
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 
 export function Workspace() {
   const { logout, savedPrompt, setSavedPrompt } = useAuth();
@@ -31,38 +31,53 @@ export function Workspace() {
   const [sidebarView, setSidebarView] = useState<'files' | 'ai'>('files');
   const [activeView, setActiveView] = useState<'code' | 'api'>('code');
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  
+  // Refs to prevent stale closures and track state
+  const isCreatingProjectRef = useRef(false);
+  const hasInitializedRef = useRef(false);
 
   const handleCreateProject = useCallback(async (prompt: string) => {
-    const newProject = await createProject({
-      name: prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt,
-      description: prompt,
-      framework: 'feathersjs', // Default framework
-      language: 'typescript' // Default language
-    })
+    // Prevent multiple simultaneous calls
+    if (projectLoading || isCreatingProjectRef.current) return
     
-    if (newProject) {
-      setCurrentProjectId(newProject._id)
-      setProjectName(newProject.name)
+    try {
+      isCreatingProjectRef.current = true
+      
+      const newProject = await createProject({
+        name: prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt,
+        description: prompt,
+        framework: 'feathersjs', 
+        language: 'typescript' 
+      })
+      
+      if (newProject) {
+        setCurrentProjectId(newProject._id)
+        setProjectName(newProject.name)
+      }
+    } finally {
+      isCreatingProjectRef.current = false
     }
-  }, [createProject])
+  }, [createProject, projectLoading])
 
-  // Handle prompt from URL or saved prompt
+  // Handle prompt from URL or saved prompt - only run once on mount
   useEffect(() => {
+    if (hasInitializedRef.current) return
+    
     const promptFromUrl = searchParams.get('prompt')
     const existingProjectId = searchParams.get('projectId')
     const prompt = promptFromUrl || savedPrompt
     
-    if (existingProjectId) {
-      // Load existing project
+    if (existingProjectId && existingProjectId !== currentProjectId) {
       setCurrentProjectId(existingProjectId)
-    } else if (prompt && !currentProjectId) {
-      // Create new project from prompt
+      hasInitializedRef.current = true
+    } else if (prompt && !currentProjectId && !projectLoading && !isCreatingProjectRef.current) {
       handleCreateProject(prompt)
-      setSavedPrompt(null) // Clear saved prompt once used
+      setSavedPrompt(null)
+      hasInitializedRef.current = true
     }
-  }, [searchParams, savedPrompt, setSavedPrompt, currentProjectId, handleCreateProject])
+  }, [searchParams, savedPrompt, currentProjectId, projectLoading, handleCreateProject, setSavedPrompt]) 
 
-  // Update project name when project loads
+  
   useEffect(() => {
     if (project) {
       setProjectName(project.name)
@@ -84,13 +99,13 @@ export function Workspace() {
   }
 
   // Handle file selection
-  const handleFileSelect = async (filePath: string) => {
+  const handleFileSelect = useCallback(async (filePath: string) => {
     setSelectedFile(filePath);
     const file = files.find(f => f.path === filePath);
     if (file) {
       await loadFileContent(file);
     }
-  };
+  }, [files, loadFileContent]);
 
   return (
     <div className="h-screen flex flex-col bg-white">
