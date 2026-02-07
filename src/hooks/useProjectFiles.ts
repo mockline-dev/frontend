@@ -11,9 +11,9 @@ export interface FileNode {
   name: string
   type: 'file' | 'folder'
   children?: FileNode[]
-  path: string
+  path: string              // Keep for display purposes
   fileId?: string
-  r2Key?: string
+  key?: string              // Changed from 'r2Key'
 }
 
 export interface UseProjectFilesReturn {
@@ -111,6 +111,27 @@ export function useProjectFiles(projectId?: string, initialFiles: File[] = []): 
       setFileTree([])
     }
   }, [files])
+
+  // Add real-time listeners for files service
+  useEffect(() => {
+    if (!projectId) return;
+
+    const unsubscribeCreated = filesService.onCreated((newFile) => {
+      if (newFile.projectId === projectId) {
+        setFiles(prev => {
+          // Avoid duplicates
+          if (prev.find(f => f._id === newFile._id)) return prev;
+          return [...prev, newFile];
+        });
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribeCreated === 'function') {
+        unsubscribeCreated();
+      }
+    };
+  }, [projectId])
   
 
   const loadFileContent = useCallback(async (file: File) => {
@@ -161,11 +182,11 @@ function buildFileTree(files: File[]): FileNode[] {
   const tree: FileNode[] = []
   const pathMap = new Map<string, FileNode>()
 
-  // Sort files by path to ensure parent folders are created first
-  const sortedFiles = [...files].sort((a, b) => a.path.localeCompare(b.path))
+  // Sort files by name to ensure parent folders are created first
+  const sortedFiles = [...files].sort((a, b) => a.name.localeCompare(b.name))
 
   for (const file of sortedFiles) {
-    const pathParts = file.path.split('/')
+    const pathParts = file.name.split('/')
     let currentPath = ''
     
     for (let i = 0; i < pathParts.length; i++) {
@@ -183,7 +204,7 @@ function buildFileTree(files: File[]): FileNode[] {
               type: 'file',
               path: currentPath,
               fileId: file._id,
-              r2Key: file.r2Key
+              key: file.key
             }
           : {
               name: part,
@@ -215,5 +236,5 @@ function buildFileTree(files: File[]): FileNode[] {
  * Find file by path in the files array
  */
 export function findFileByPath(files: File[], path: string): File | undefined {
-  return files.find(file => file.path === path)
+  return files.find(file => file.name === path)
 }

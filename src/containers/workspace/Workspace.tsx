@@ -4,7 +4,6 @@ import { FileTree } from '@/components/custom/FileTree';
 import { UserMenu } from '@/components/custom/UserMenu';
 import { Button } from '@/components/ui/button';
 import { AiAgent } from '@/containers/aiAgent/AIAgent';
-import { Terminal } from '@/containers/workspace/components/Terminal';
 import { TestPanel } from '@/containers/workspace/components/TestPanel';
 import { useAIProject } from '@/hooks/useAIProject';
 import { useProjectFiles } from '@/hooks/useProjectFiles';
@@ -66,8 +65,8 @@ export function Workspace({
       const newProject = await createProject({
         name: prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt,
         description: prompt,
-        framework: 'feathersjs',
-        language: 'typescript',
+        framework: 'fast-api',
+        language: 'python',
         model: 'llama3.2:3b'
       })
       
@@ -111,7 +110,7 @@ export function Workspace({
   
   const handleFileSelect = useCallback(async (filePath: string) => {
     setSelectedFile(filePath);
-    const file = files.find(f => f.path === filePath);
+    const file = files.find(f => f.name === filePath);  // Changed from 'path' to 'name'
     if (file) {
       await loadFileContent(file);
     }
@@ -276,11 +275,11 @@ export function Workspace({
       </Button>
 
       {/* Terminal Panel */}
-      <Terminal
+      {/* <Terminal
         isOpen={isTerminalOpen} 
         onClose={() => setIsTerminalOpen(false)}
         projectId={currentProjectId as string}
-      />
+      /> */}
     </div>
   );
 }

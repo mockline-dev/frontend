@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { defaultAiModel, getApiUrl } from '@/config/environment';
-import { Message, messagesService } from '@/services/api/messages-new';
+import { Message, messagesService } from '@/services/api/messages';
 import { PromptValidationResult, validatePrompt } from '@/utils/promptValidation';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -236,6 +236,7 @@ export function AiAgent({ projectId }: AIAgentProps) {
   const handleSuggestedPrompt = (prompt: string) => {
     setInput(prompt);
   };
+
 
   return (
     <div className="h-full flex flex-col bg-white">

@@ -1,25 +1,16 @@
-import feathersClient, { checkAuth } from './featherClient';
-import { hashFileName } from './hashFileName';
+
+import { hashFileName } from '@/services/hashFileName';
+import feathersClient from './featherClient';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
-export default async function uploadFileMultipart(
-    file: File,
-    // fileType: 'audio' | 'video' | 'image',
-    setUploadProgress?: (progress: number) => void
-) {
+export default async function uploadFileMultipart(file: File, fileObject: File, setUploadProgress?: (progress: number) => void): Promise<string | null> {
     try {
-        const isAuthenticated = await checkAuth();
-        if (!isAuthenticated) {
-            throw new Error('User not authenticated');
-        }
-
         const hashedFilename = await hashFileName(file.name);
         const initResponse = await feathersClient.service('uploads').create({
             key: hashedFilename,
             contentType: file.type
         });
-
         const { uploadId, key } = initResponse;
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         const parts = [];
@@ -29,7 +20,6 @@ export default async function uploadFileMultipart(
             const end = Math.min(file.size, start + CHUNK_SIZE);
             const chunk = file.slice(start, end);
 
-            // Convert chunk to buffer
             const reader = new FileReader();
             const chunkData = await new Promise<ArrayBuffer>((resolve) => {
                 reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
@@ -42,7 +32,6 @@ export default async function uploadFileMultipart(
                 key,
                 content: Buffer.from(chunkData)
             });
-
             const responseETag =
                 Array.isArray(partResponse) && partResponse.length > 0
                     ? (partResponse[0] as unknown as { ETag: string; PartNumber: number })?.ETag || ''
@@ -64,11 +53,8 @@ export default async function uploadFileMultipart(
             parts,
             fileType: file.type
         });
-
-        return completeResponse;
+        return (completeResponse as unknown as string) || null;
     } catch (error) {
-        // console.error(`Error uploading ${fileType}:`, error)
-        // message.error(`Failed to upload ${fileType}`)
         throw error;
     }
 }

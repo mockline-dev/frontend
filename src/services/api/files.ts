@@ -5,9 +5,9 @@ export interface File {
   _id: string
   projectId: string
   messageId?: string
-  path: string
-  r2Key: string
-  language: string
+  name: string           // The filename/key in R2 (changed from 'path')
+  key: string            // The R2 key (changed from 'r2Key')
+  fileType: string       // Content type (changed from 'language')
   size: number
   currentVersion: number
   createdAt: number
@@ -57,7 +57,7 @@ export const filesService = {
     return await feathersClient.service('files').get(id)
   },
 
-  async create(data: { projectId: string; messageId?: string; path: string; r2Key: string; language: string; size: number }): Promise<File> {
+  async create(data: { projectId: string; messageId?: string; name: string; key: string; fileType: string; size: number }): Promise<File> {
     await feathersClient.authenticate()
     return await feathersClient.service('files').create(data)
   },
@@ -68,41 +68,25 @@ export const filesService = {
       query: { projectId }
     })
     return result.data
+  },
+
+  async getFileUrl(fileId: string): Promise<string> {
+    await feathersClient.authenticate()
+    const file = await feathersClient.service('files').get(fileId)
+    // Use file-stream service to get signed URL
+    const streamResult = await feathersClient.service('file-stream').get(file.key)
+    return streamResult.url
+  },
+
+  // Real-time event listeners
+  onCreated(callback: (file: File) => void) {
+    feathersClient.service('files').on('created', callback)
+    return () => feathersClient.service('files').off('created', callback)
   }
 }
 
 // Backward compatibility - keep old service name as alias
 export const aiFilesService = filesService
 
-export const r2Service = {
-  async getFile(key: string): Promise<FileContent> {
-    await feathersClient.authenticate()
-    return await feathersClient.service('r2').get(key)
-  },
-
-  async uploadFile(key: string, content: string, contentType: string): Promise<R2File> {
-    await feathersClient.authenticate()
-    return await feathersClient.service('r2').create({
-      key,
-      content,
-      contentType
-    })
-  },
-
-  async deleteFile(key: string): Promise<R2File> {
-    await feathersClient.authenticate()
-    return await feathersClient.service('r2').remove(key)
-  },
-
-  async listFiles(prefix: string): Promise<R2File[]> {
-    await feathersClient.authenticate()
-    return await feathersClient.service('r2').find({
-      query: { prefix }
-    })
-  },
-
-  async getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    await feathersClient.authenticate()
-    return await feathersClient.service('r2').presignedUrl({ key, expiresIn })
-  }
-}
+// Note: r2Service has been removed as backend now uses 'file-stream' service
+// for file access. Use filesService.getFileUrl() instead.

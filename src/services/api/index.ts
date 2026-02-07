@@ -1,7 +1,8 @@
 // Export all API services and types
 export * from './aiModels'
+export * from './aiService'
 export * from './files'
-export * from './messages-new'
+export * from './messages'
 export * from './projects'
 export * from './users'
 

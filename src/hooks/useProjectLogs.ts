@@ -204,8 +204,8 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
         'Backup completed'
       ]
 
-      const randomType = logTypes[Math.floor(Math.random() * logTypes.length)]
-      const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+      const randomType = logTypes[Math.floor(Math.random() * logTypes.length)] as LogEntry['type']
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)] as string
 
       addLog({
         type: randomType,

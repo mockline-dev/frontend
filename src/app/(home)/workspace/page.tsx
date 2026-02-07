@@ -1,6 +1,6 @@
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Workspace } from '@/containers/workspace/Workspace'
-import type { AIProject } from '@/services/api/aiProjects'
+
 import type { AIFile } from '@/services/api/files'
 import { createFeathersServerClient } from '@/services/feathersServer'
 
@@ -12,14 +12,14 @@ interface WorkspacePageProps {
 
 export default async function WorkspacePage({ searchParams }: WorkspacePageProps) {
   const projectId = (await searchParams)?.projectId
-  let initialProject: AIProject | null = null
+  let initialProject = null
   let initialFiles: AIFile[] = []
 
   if (projectId) {
     try {
       const feathers = await createFeathersServerClient()
-      initialProject = await feathers.service('ai-projects').get(projectId)
-      const filesResult = await feathers.service('ai-files').find({
+      initialProject = await feathers.service('projects').get(projectId)
+      const filesResult = await feathers.service('files').find({
         query: { projectId }
       })
       initialFiles = filesResult?.data || []

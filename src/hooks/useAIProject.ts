@@ -85,6 +85,18 @@ export function useAIProject(projectId?: string, initialProject: Project | null 
       setLoading(true)
       setError(null)
 
+      // Validate framework and language
+      const validFrameworks = ['fast-api', 'feathers']
+      const validLanguages = ['python', 'typescript']
+
+      if (!validFrameworks.includes(data.framework)) {
+        throw new Error(`Invalid framework: ${data.framework}. Must be one of: ${validFrameworks.join(', ')}`)
+      }
+
+      if (!validLanguages.includes(data.language)) {
+        throw new Error(`Invalid language: ${data.language}. Must be one of: ${validLanguages.join(', ')}`)
+      }
+
       console.log('[DEBUG] Creating project with data:', JSON.stringify(data, null, 2))
       console.log('[DEBUG] Data keys:', Object.keys(data))
 
