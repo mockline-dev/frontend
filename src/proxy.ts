@@ -41,11 +41,12 @@ export async function proxy(request: NextRequest) {
   response.headers.set(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com; " +
-    "style-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://cdn.jsdelivr.net; " +
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
     "img-src 'self' data: https: https://accounts.google.com; " +
     "font-src 'self' data: https://fonts.gstatic.com; " +
-    "connect-src 'self' ws://localhost:* wss://localhost:* https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://www.googleapis.com; " +
+    "connect-src 'self' ws://localhost:* wss://localhost:* https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://www.googleapis.com https://cdn.jsdelivr.net; " +
+    "worker-src 'self' blob:; " +
     "frame-src 'self' https://accounts.google.com https://mockline-1a0e0.firebaseapp.com;"
   )
   

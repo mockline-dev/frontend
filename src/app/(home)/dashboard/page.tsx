@@ -1,14 +1,14 @@
-import { Dashboard } from '@/containers/dashboard/Dashboard'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { Dashboard } from '@/containers/dashboard/Dashboard'
+import type { Project } from '@/services/api/projects'
 import { createFeathersServerClient } from '@/services/feathersServer'
-import type { AIProject } from '@/services/api/aiProjects'
 
 export default async function DashboardPage() {
-  let initialProjects: AIProject[] = []
+  let initialProjects: Project[] = []
 
   try {
     const feathers = await createFeathersServerClient()
-    const result = await feathers.service('ai-projects').find({
+    const result = await feathers.service('projects').find({
       query: {
         $sort: { createdAt: -1 },
         $limit: 10

@@ -3,8 +3,8 @@
 import { UserMenu } from '@/components/custom/UserMenu';
 import { Button } from '@/components/ui/button';
 import { useAIProjects } from '@/hooks/useAIProjects';
-import type { AIProject } from '@/services/api/aiProjects';
 import { useAuth } from '@/providers/AuthProvider';
+import type { Project } from '@/services/api/projects';
 import {
   AlertCircle,
   ArrowRight,
@@ -19,7 +19,7 @@ import {
 import { useRouter } from 'next/navigation';
 
 interface DashboardProps {
-  initialProjects?: AIProject[]
+  initialProjects?: Project[]
 }
 
 export function Dashboard({ initialProjects = [] }: DashboardProps) {

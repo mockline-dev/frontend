@@ -2,6 +2,7 @@
 
 import { getBackendUrl } from '@/config/environment'
 import { useCallback, useEffect, useState } from 'react'
+import { io, Socket } from 'socket.io-client'
 
 export interface LogEntry {
   id: string
@@ -24,13 +25,13 @@ export interface UseProjectLogsReturn {
 }
 
 /**
- * Hook to manage project logs and real-time updates
+ * Hook to manage project logs and real-time updates using Socket.IO
  */
 export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [ws, setWs] = useState<WebSocket | null>(null)
+  const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
   // Add a new log entry
@@ -41,7 +42,7 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
       timestamp: new Date(),
       projectId: projectId || ''
     }
-    
+
     setLogs(prev => [...prev, newLog])
   }, [projectId])
 
@@ -50,15 +51,22 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
     setLogs([])
   }, [])
 
-  // Connect to WebSocket for real-time logs
+  // Connect to Socket.IO for real-time logs
   const connectWebSocket = useCallback(() => {
-    if (!projectId || ws) return
+    if (!projectId || socket) return
 
     try {
-      const wsUrl = getBackendUrl('/socket.io').replace('http', 'ws')
-      const websocket = new WebSocket(`${wsUrl}/?projectId=${projectId}`)
-      
-      websocket.onopen = () => {
+      const backendUrl = getBackendUrl('')
+      const socketInstance = io(backendUrl, {
+        path: '/socket.io',
+        transports: ['websocket', 'polling'],
+        query: { projectId },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+      })
+
+      socketInstance.on('connect', () => {
         setIsConnected(true)
         setError(null)
         addLog({
@@ -66,55 +74,67 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
           message: 'Connected to project logs',
           source: 'terminal'
         })
-      }
+      })
 
-      websocket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          
-          if (data.type === 'log' && data.projectId === projectId) {
-            addLog({
-              type: data.logType || 'info',
-              message: data.message,
-              source: data.source || 'server'
-            })
-          }
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err)
-        }
-      }
-
-      websocket.onclose = () => {
+      socketInstance.on('connect_error', (err) => {
+        setError('Socket.IO connection failed')
         setIsConnected(false)
-        setWs(null)
+        console.error('Socket.IO connection error:', err)
         addLog({
-          type: 'system',
-          message: 'Disconnected from project logs',
+          type: 'warning',
+          message: 'Could not connect to real-time logs. Backend server may be unavailable.',
           source: 'terminal'
         })
-      }
+      })
 
-      websocket.onerror = (error) => {
-        setError('WebSocket connection failed')
+      socketInstance.on('disconnect', (reason) => {
         setIsConnected(false)
-        console.error('WebSocket error:', error)
-      }
+        addLog({
+          type: 'system',
+          message: `Disconnected from project logs: ${reason}`,
+          source: 'terminal'
+        })
+      })
 
-      setWs(websocket)
+      socketInstance.on('log', (data: { type?: string; message: string; source?: string; projectId: string }) => {
+        if (data.projectId === projectId) {
+          addLog({
+            type: (data.type as LogEntry['type']) || 'info',
+            message: data.message,
+            source: data.source || 'server'
+          })
+        }
+      })
+
+      socketInstance.on('error', (err: Error) => {
+        console.error('Socket.IO error:', err)
+        addLog({
+          type: 'error',
+          message: `Socket error: ${err.message}`,
+          source: 'terminal'
+        })
+      })
+
+      setSocket(socketInstance)
     } catch (err) {
       setError('Failed to connect to logs')
-      console.error('WebSocket connection error:', err)
+      console.error('Socket.IO connection error:', err)
+      addLog({
+        type: 'warning',
+        message: 'Could not initialize socket connection',
+        source: 'terminal'
+      })
     }
-  }, [projectId, ws, addLog])
+  }, [projectId, socket, addLog])
 
-  // Disconnect WebSocket
+  // Disconnect Socket.IO
   const disconnectWebSocket = useCallback(() => {
-    if (ws) {
-      ws.close()
-      setWs(null)
+    if (socket) {
+      socket.disconnect()
+      setSocket(null)
       setIsConnected(false)
     }
-  }, [ws])
+  }, [socket])
 
   // Load initial logs when projectId changes
   useEffect(() => {
@@ -143,13 +163,13 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
             message: 'Project initialized successfully',
             source: 'system'
           })
-          
+
           addLog({
             type: 'info',
             message: 'Backend generation completed',
             source: 'ai-service'
           })
-          
+
           addLog({
             type: 'info',
             message: 'Files uploaded to storage',
@@ -173,25 +193,25 @@ export function useProjectLogs(projectId?: string): UseProjectLogsReturn {
     loadInitialLogs()
   }, [projectId, addLog])
 
-  // Auto-connect WebSocket when projectId is available
+  // Auto-connect Socket.IO when projectId is available
   useEffect(() => {
-    if (projectId && !ws) {
+    if (projectId && !socket) {
       // Delay connection slightly to allow component to mount
       const timer = setTimeout(connectWebSocket, 1000)
       return () => clearTimeout(timer)
     }
-  }, [projectId, ws, connectWebSocket])
+  }, [projectId, socket, connectWebSocket])
 
-  // Cleanup WebSocket on unmount
+  // Cleanup Socket.IO on unmount
   useEffect(() => {
     return () => {
       disconnectWebSocket()
     }
   }, [disconnectWebSocket])
 
-  // Simulate some periodic logs for demo purposes
+  // Simulate some periodic logs for demo purposes (only when not connected to real backend)
   useEffect(() => {
-    if (!projectId || !isConnected) return
+    if (!projectId || isConnected) return
 
     const interval = setInterval(() => {
       const logTypes: Array<LogEntry['type']> = ['info', 'success']
