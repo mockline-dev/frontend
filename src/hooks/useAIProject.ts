@@ -8,44 +8,38 @@ export type AIProject = Project
 export type CreateAIProjectData = CreateProjectData
 
 export function useAIProject(projectId?: string, initialProject: Project | null = null) {
-  const [project, setProject] = useState<Project | null>(initialProject)
+  const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  const currentProjectIdRef = useRef(projectId || initialProject?._id)
+  // Log project state changes
+  useEffect(() => {
+    console.log('[useAIProject] Project state changed:', {
+      projectId: project?._id,
+      status: project?.status,
+      hasProject: !!project
+    })
+  }, [project])
+  
+  const currentProjectIdRef = useRef<string | undefined>(undefined)
   const initialProjectIdRef = useRef(initialProject?._id)
   const loadingRef = useRef(false)
-  
+
   useEffect(() => {
-    if (!project) return
+    currentProjectIdRef.current = projectId
+
+    if (!projectId) return
 
     const unsubscribePatched = projectsService.onPatched((updatedProject) => {
-      if (updatedProject._id === project._id) {
-        setProject(updatedProject)
-
-        if (updatedProject.status === 'generating' && project.status === 'initializing') {
-          toast.info('Generating your backend...', { duration: Infinity, id: 'generating' })
-        } else if (updatedProject.status === 'ready' && project.status !== 'ready') {
-          toast.dismiss('generating')
-          toast.success('Project generated successfully!')
-        } else if (updatedProject.status === 'error') {
-          toast.dismiss('generating')
-          toast.error(updatedProject.errorMessage || 'Project generation failed')
-        }
-      }
-    })
-
-    const unsubscribeUpdated = projectsService.onUpdated((updatedProject) => {
-      if (updatedProject._id === project._id) {
+      if (updatedProject._id === currentProjectIdRef.current) {
         setProject(updatedProject)
       }
     })
 
     return () => {
       unsubscribePatched()
-      unsubscribeUpdated()
     }
-  }, [project])
+  }, [projectId])
 
   const loadProject = useCallback(async (id: string) => {
     if (loadingRef.current || !id) return

@@ -57,6 +57,15 @@ export function Workspace({
     currentProjectId,
     initialProject
   );
+  
+  // Log when project from useAIProject changes
+  useEffect(() => {
+    console.log('[Workspace] Project from useAIProject changed:', {
+      projectId: project?._id,
+      status: project?.status,
+      hasProject: !!project
+    })
+  }, [project])
   const { fileTree, files, selectedFileContent, loadingContent, loadFileContent } = useProjectFiles(
     currentProjectId,
     initialFiles
@@ -75,8 +84,23 @@ export function Workspace({
     error: undefined as string | undefined
   });
   
+  // Log creationProgress state changes
+  useEffect(() => {
+    console.log('[Workspace] creationProgress state changed:', creationProgress)
+  }, [creationProgress])
+  
   const isCreatingProjectRef = useRef(false);
   const hasInitializedRef = useRef(false);
+  
+  // Log component renders
+  useEffect(() => {
+    console.log('[Workspace] Component rendered', {
+      currentProjectId,
+      projectId: project?._id,
+      projectStatus: project?.status,
+      hasProject: !!project
+    })
+  })
 
   // Get the currently selected file object
   const selectedFileObj = files.find(f => f.name === selectedFile) || null;
@@ -179,8 +203,19 @@ export function Workspace({
   useEffect(() => {
     if (!project) return
 
+    console.log('[Workspace] Setting up onPatched listener for project:', project._id, 'current status:', project.status)
+
     const unsubscribe = projectsService.onPatched((updatedProject: Project) => {
+      console.log('[Workspace] onPatched event received:', {
+        projectId: updatedProject._id,
+        currentProjectId: project._id,
+        updatedStatus: updatedProject.status,
+        currentStatus: project.status,
+        matches: updatedProject._id === project._id
+      })
+      
       if (updatedProject._id === project._id) {
+        console.log('[Workspace] Updating creationProgress based on status:', updatedProject.status)
         // Update creation progress based on status
         if (updatedProject.status === 'initializing') {
           setCreationProgress(prev => ({ ...prev, stage: 'initializing', progress: 10 }))
@@ -205,6 +240,7 @@ export function Workspace({
     })
 
     return () => {
+      console.log('[Workspace] Cleaning up onPatched listener for project:', project?._id)
       if (typeof unsubscribe === 'function') {
         unsubscribe()
       }
@@ -339,7 +375,28 @@ export function Workspace({
     }
   }, [currentProjectId]);
   
-  if (projectLoading) {
+  console.log('[Workspace] Checking loader condition:', {
+    hasProject: !!project,
+    projectId: project?._id,
+    status: project?.status,
+    statusType: typeof project?.status,
+    statusNotReady: project?.status !== 'ready',
+    shouldShowLoader: project && project.status !== 'ready'
+  })
+
+  console.log('[Workspace] RENDER - Loader condition check:', {
+    hasProject: !!project,
+    projectId: project?._id,
+    status: project?.status,
+    statusType: typeof project?.status,
+    statusNotReady: project?.status !== 'ready',
+    wouldShowLoader: project && project.status !== 'ready',
+    timestamp: new Date().toISOString()
+  })
+
+  if (project && (project.status === undefined || project.status !== 'ready')) {
+    console.log('[Workspace] Showing loader - project exists but status is:', project.status)
+    console.log('[Workspace] Showing loader with stage:', creationProgress.stage)
     return (
       <ProjectCreationLoader
         stage={creationProgress.stage}
@@ -350,6 +407,8 @@ export function Workspace({
       />
     )
   }
+  
+  console.log('[Workspace] Hiding loader, showing main workspace')
 
 
   return (
