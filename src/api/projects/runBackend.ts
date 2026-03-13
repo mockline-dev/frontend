@@ -1,10 +1,9 @@
-'use server';
-
 import type { File } from '@/services/api/files';
 import { createFeathersServerClient } from '@/services/feathersServer';
-import { exec, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { createServer } from 'net';
 import { dirname, join } from 'path';
 import { fetchFileContent } from '../files/fetchFileContent';
 
@@ -12,11 +11,13 @@ const PIP_INSTALL_TIMEOUT_MS = 6 * 60 * 1000;
 
 export interface RunBackendParams {
     projectId: string;
+    onLog?: (log: BackendLogEntry) => void;
 }
 
 export interface BackendRunResult {
     success: boolean;
     message: string;
+    failureType?: 'syntax_error' | 'port_conflict' | 'import_error' | 'timeout' | 'startup_error';
     logs?: BackendLogEntry[];
     project?: {
         name: string;
@@ -53,6 +54,10 @@ export interface BackendLogEntry {
 
 export type RunBackendResponse = { success: true; data: BackendRunResult } | { success: false; error: string; data?: BackendRunResult };
 
+const HEALTH_CHECK_RETRIES = 5;
+const HEALTH_CHECK_RETRY_DELAY_MS = 2000;
+const HEALTH_CHECK_TIMEOUT_MS = 3000;
+
 const toProjectRelativePath = (file: { key: string; name: string }): string => {
     const key = file.key || '';
     const projectsPrefix = 'projects/';
@@ -67,12 +72,14 @@ const toProjectRelativePath = (file: { key: string; name: string }): string => {
     return file.name;
 };
 
-export const runBackend = async ({ projectId }: RunBackendParams): Promise<RunBackendResponse> => {
+export const runBackend = async ({ projectId, onLog }: RunBackendParams): Promise<RunBackendResponse> => {
     const tempDir = join(process.cwd(), '.temp-backend');
     const logs: BackendLogEntry[] = [];
 
     const pushLog = (type: BackendLogEntry['type'], message: string, source = 'runner') => {
-        logs.push({ type, message, source });
+        const entry: BackendLogEntry = { type, message, source };
+        logs.push(entry);
+        onLog?.(entry);
         if (type === 'error') {
             console.error(message);
         } else if (type === 'warning') {
@@ -312,37 +319,146 @@ export const runBackend = async ({ projectId }: RunBackendParams): Promise<RunBa
             };
         }
 
-        // Run the FastAPI server
-        const port = 8000;
         const mainRelativePath = toProjectRelativePath(mainFile);
+
+        pushLog('system', 'Validating Python syntax...', 'python');
+        try {
+            try {
+                await runStreamingCommand('python', ['-m', 'py_compile', mainRelativePath], tempDir, 'python');
+            } catch {
+                await runStreamingCommand('python3', ['-m', 'py_compile', mainRelativePath], tempDir, 'python');
+            }
+            pushLog('success', 'Python syntax validation passed', 'python');
+        } catch (error: unknown) {
+            const syntaxError = error as { message?: string };
+            pushLog('error', `Python syntax validation failed: ${syntaxError.message || 'Unknown error'}`, 'python');
+            await cleanupTempDir(tempDir);
+            return {
+                success: false,
+                error: 'Python syntax validation failed',
+                data: {
+                    success: false,
+                    message: 'Syntax validation failed',
+                    failureType: 'syntax_error',
+                    details: syntaxError.message || 'Unknown error',
+                    logs,
+                    validation,
+                    files: {
+                        total: files.length,
+                        mainFile: mainFile.name,
+                        hasRequirements: !!requirementsFile,
+                        filesList
+                    }
+                }
+            };
+        }
+
+        // Run the FastAPI server
+        const port = await getAvailablePort();
         const moduleName = mainRelativePath.replace(/\.py$/i, '').replace(/\//g, '.');
         pushLog('system', `Starting FastAPI server on port ${port}...`, 'uvicorn');
 
-        const serverProcess = exec(`uvicorn ${moduleName}:app --host 0.0.0.0 --port ${port}`, { cwd: tempDir });
+        const serverProcess = spawn('uvicorn', [`${moduleName}:app`, '--host', '0.0.0.0', '--port', String(port)], {
+            cwd: tempDir,
+            shell: false,
+            env: process.env
+        });
 
-        // Wait a bit for server to start
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        let exitedBeforeReady = false;
+        let startupExitCode: number | null = null;
+        const uvicornErrors: string[] = [];
 
-        // Check if server is running
+        serverProcess.stdout?.on('data', (chunk: Buffer | string) => {
+            const lines = chunk
+                .toString()
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+            for (const line of lines) {
+                pushLog('info', line, 'uvicorn');
+            }
+        });
+
+        serverProcess.stderr?.on('data', (chunk: Buffer | string) => {
+            const lines = chunk
+                .toString()
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+            for (const line of lines) {
+                uvicornErrors.push(line);
+                pushLog('warning', line, 'uvicorn');
+            }
+        });
+
+        serverProcess.on('error', (error) => {
+            uvicornErrors.push(error.message);
+            pushLog('error', `Failed to spawn uvicorn: ${error.message}`, 'uvicorn');
+        });
+
+        serverProcess.on('close', (code) => {
+            startupExitCode = code;
+            exitedBeforeReady = true;
+            pushLog('warning', `Uvicorn process exited with code ${code ?? 'unknown'}`, 'uvicorn');
+        });
+
+        const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
         let serverRunning = false;
-        try {
-            const healthCheck = await fetch(`http://localhost:${port}/docs`, {
-                signal: AbortSignal.timeout(5000)
-            });
-            serverRunning = healthCheck.ok;
-        } catch (error) {
-            pushLog('warning', `Server health check failed: ${error instanceof Error ? error.message : String(error)}`, 'uvicorn');
+        for (let attempt = 1; attempt <= HEALTH_CHECK_RETRIES; attempt++) {
+            if (exitedBeforeReady) {
+                break;
+            }
+
+            try {
+                const healthCheck = await fetch(`http://localhost:${port}/docs`, {
+                    signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS)
+                });
+                if (healthCheck.ok) {
+                    serverRunning = true;
+                    pushLog('success', `Server health check passed on attempt ${attempt}/${HEALTH_CHECK_RETRIES}`, 'uvicorn');
+                    break;
+                }
+                pushLog('warning', `Health check returned status ${healthCheck.status} on attempt ${attempt}/${HEALTH_CHECK_RETRIES}`, 'uvicorn');
+            } catch (error) {
+                pushLog(
+                    'warning',
+                    `Server health check attempt ${attempt}/${HEALTH_CHECK_RETRIES} failed: ${error instanceof Error ? error.message : String(error)}`,
+                    'uvicorn'
+                );
+            }
+
+            if (attempt < HEALTH_CHECK_RETRIES) {
+                await wait(HEALTH_CHECK_RETRY_DELAY_MS);
+            }
         }
 
         if (!serverRunning) {
-            serverProcess.kill();
+            if (!serverProcess.killed) {
+                serverProcess.kill('SIGTERM');
+            }
             await cleanupTempDir(tempDir);
+
+            const combinedError = uvicornErrors.join(' | ').toLowerCase();
+            const failureType: BackendRunResult['failureType'] =
+                combinedError.includes('address already in use') || combinedError.includes('port')
+                    ? 'port_conflict'
+                    : combinedError.includes('importerror') || combinedError.includes('modulenotfounderror')
+                      ? 'import_error'
+                      : exitedBeforeReady && startupExitCode !== 0
+                        ? 'startup_error'
+                        : 'timeout';
+
             return {
                 success: false,
                 error: 'Failed to start FastAPI server',
                 data: {
                     success: false,
                     message: 'Failed to start server',
+                    failureType,
+                    details: uvicornErrors.length > 0 ? uvicornErrors.join('\n') : 'Server health check failed before readiness',
                     logs,
                     validation,
                     files: {
@@ -466,4 +582,34 @@ async function cleanupTempDir(tempDir: string) {
     } catch (error) {
         console.error('Failed to cleanup temp directory:', error);
     }
+}
+
+async function getAvailablePort(): Promise<number> {
+    return await new Promise((resolve, reject) => {
+        const server = createServer();
+
+        server.unref();
+
+        server.on('error', (error) => {
+            server.close();
+            reject(error);
+        });
+
+        server.listen(0, '127.0.0.1', () => {
+            const address = server.address();
+            if (!address || typeof address === 'string') {
+                server.close(() => reject(new Error('Failed to resolve available port')));
+                return;
+            }
+
+            const { port } = address;
+            server.close((closeError) => {
+                if (closeError) {
+                    reject(closeError);
+                    return;
+                }
+                resolve(port);
+            });
+        });
+    });
 }

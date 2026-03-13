@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DiffEditor } from '@monaco-editor/react';
 import { Check, FileEdit, FilePlus, Loader2, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
@@ -71,40 +72,60 @@ export function FileUpdatePreview({ updates, currentFiles, applyingUpdateKeys = 
         return null;
     }
 
+    const pendingCount = updates.length;
+    const applyingCount = applyingUpdateKeys.length;
+
     return (
-        <div className="border-t border-gray-200 bg-gray-50">
+        <div className="border-t border-gray-200 bg-gray-50" role="region" aria-label="AI file update review">
             {/* Header */}
-            <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between">
+            <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between sticky top-0 z-10">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">
-                        🤖 Mocky suggests {updates.length} file change{updates.length > 1 ? 's' : ''}
-                    </span>
+                    <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center text-sm">🤖</div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-900">
+                            Mocky suggests {pendingCount} file change{pendingCount > 1 ? 's' : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">{applyingCount > 0 ? `${applyingCount} applying` : `${pendingCount} pending review`}</p>
+                    </div>
                 </div>
-                <Button onClick={onAcceptAll} disabled={isApplying} size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700">
+                <Button
+                    onClick={onAcceptAll}
+                    disabled={isApplying}
+                    size="sm"
+                    className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                    aria-label={`Accept all ${pendingCount} suggested file changes`}
+                >
                     {isApplying ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
                     {isApplying ? 'Applying...' : 'Accept All'}
                 </Button>
             </div>
 
             {/* Updates List */}
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto" role="list" aria-label="Suggested file changes">
                 {updates.map((update) => {
                     const isExpanded = expandedUpdates.has(update.filename);
                     const isApplyingUpdate = applyingUpdateKeys.includes(getUpdateKey(update));
                     const currentContent = currentFiles.get(update.filename) || '';
+                    const missingCurrentContent = update.action === 'modify' && !currentFiles.has(update.filename);
 
                     return (
-                        <div key={update.filename} className="border-b border-gray-200 bg-white">
+                        <div key={`${update.action}:${update.filename}`} className="border-b border-gray-200 bg-white" role="listitem">
                             {/* Update Header */}
                             <button
                                 onClick={() => toggleExpand(update.filename)}
-                                className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                aria-expanded={isExpanded}
+                                aria-label={`Toggle preview for ${update.filename}`}
                             >
                                 <div className="flex items-center gap-2 flex-1">
                                     {getActionIcon(update.action)}
-                                    <span className="text-sm font-medium text-gray-900">{update.filename}</span>
-                                    <span className="text-xs text-gray-500">— {getActionLabel(update.action)}</span>
-                                    <span className="text-xs text-gray-400 ml-2">&ldquo;{update.description}&rdquo;</span>
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-sm font-medium text-gray-900 text-left">{update.filename}</span>
+                                        <span className="text-xs text-gray-500 text-left">{update.description}</span>
+                                    </div>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 uppercase tracking-wide ml-1">
+                                        {getActionLabel(update.action)}
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Button
@@ -115,9 +136,11 @@ export function FileUpdatePreview({ updates, currentFiles, applyingUpdateKeys = 
                                         disabled={isApplyingUpdate || isApplying}
                                         size="sm"
                                         variant="ghost"
-                                        className="h-6 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                                        className="h-7 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                                        aria-label={`Accept change for ${update.filename}`}
                                     >
-                                        {isApplyingUpdate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                        {isApplyingUpdate ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                                        Accept
                                     </Button>
                                     <Button
                                         onClick={(e) => {
@@ -127,12 +150,22 @@ export function FileUpdatePreview({ updates, currentFiles, applyingUpdateKeys = 
                                         disabled={isApplyingUpdate || isApplying}
                                         size="sm"
                                         variant="ghost"
-                                        className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        aria-label={`Reject change for ${update.filename}`}
                                     >
-                                        <X className="w-3 h-3" />
+                                        <X className="w-3 h-3 mr-1" />
+                                        Reject
                                     </Button>
                                 </div>
                             </button>
+
+                            {isExpanded && missingCurrentContent && (
+                                <div className="px-4 pb-2">
+                                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                                        Current file content is unavailable; showing proposed content only.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Diff Preview */}
                             {isExpanded && update.action !== 'delete' && (
@@ -142,6 +175,7 @@ export function FileUpdatePreview({ updates, currentFiles, applyingUpdateKeys = 
                                             original={currentContent}
                                             modified={update.content}
                                             language={update.language}
+                                            loading={<Skeleton className="h-75 w-full rounded-none" />}
                                             options={{
                                                 readOnly: true,
                                                 renderSideBySide: true,

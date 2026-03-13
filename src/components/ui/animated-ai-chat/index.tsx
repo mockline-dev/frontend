@@ -51,6 +51,7 @@ export function AnimatedAIChat({
     const [inputFocused, setInputFocused] = useState(false);
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight: 60, maxHeight: 200 });
     const showCommandPalette = value.startsWith('/') && !value.includes(' ');
+    const statusLabel = enhanceLoading ? 'Enhancing prompt' : isTyping ? 'Generating response' : 'Processing';
 
     useEffect(() => {
         if (enhancedPrompt) {
@@ -105,7 +106,7 @@ export function AnimatedAIChat({
     };
 
     return (
-        <div className="h-[calc(100vh-80px)] flex flex-col w-full items-center justify-center bg-transparent text-black p-6 relative overflow-hidden">
+        <div className="h-[calc(100vh-80px)] flex flex-col w-full items-center justify-center bg-transparent text-black p-4 sm:p-6 relative overflow-hidden">
             <BackgroundOrbs />
             <div className="w-full max-w-3xl mx-auto relative">
                 <motion.div
@@ -133,7 +134,7 @@ export function AnimatedAIChat({
                             )}
                         </AnimatePresence>
 
-                        <div className="p-4">
+                        <div className="p-4 sm:p-5">
                             <ChatTextarea
                                 ref={textareaRef}
                                 value={value}
@@ -155,23 +156,23 @@ export function AnimatedAIChat({
                                     'resize-none',
                                     'bg-transparent',
                                     'border-none',
-                                    'text-black/90 text-sm',
+                                    'text-black/90 text-sm sm:text-base',
                                     'focus:outline-none',
                                     'placeholder:text-black/20',
-                                    'min-h-15 pr-8'
+                                    'min-h-15 pr-8 leading-relaxed'
                                 )}
                                 style={{ overflow: 'hidden' }}
                                 showRing={false}
                             />
                         </div>
 
-                        <div className="p-4 border-black/5 flex items-center justify-end gap-4">
+                        <div className="p-4 sm:p-5 border-black/5 flex items-center justify-end gap-3 sm:gap-4">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => onEnhanceClick(value)}
                                 disabled={!value.trim() || isTyping}
-                                className={`${!value.trim() && 'hidden'} text-sm font-medium transition-colors hover:bg-black/5 data-[state=open]:bg-black/5 absolute right-4 top-4`}
+                                className={`${!value.trim() && 'hidden'} text-sm font-medium transition-colors hover:bg-black/5 data-[state=open]:bg-black/5 absolute right-4 top-4 h-10 px-3 rounded-lg`}
                             >
                                 {enhanceLoading ? <Spinner /> : <Image src="/stick.png" alt="Enhance" width={20} height={20} className="w-5 h-5 text-black/50" />}
                             </Button>
@@ -183,7 +184,7 @@ export function AnimatedAIChat({
                 </motion.div>
             </div>
 
-            <TypingIndicator isTyping={isTyping} />
+            <TypingIndicator isTyping={isTyping || enhanceLoading} label={statusLabel} />
             <MouseFollower position={mousePosition} visible={inputFocused} />
         </div>
     );

@@ -2,8 +2,8 @@
 
 import { fetchFileContent } from '@/api/files/fetchFileContent';
 import { downloadProject } from '@/api/projects/downloadProject';
-import { runBackend } from '@/api/projects/runBackend';
 import { createUpload } from '@/api/uploads/createUpload';
+import { ArchitectureGraph } from '@/components/custom/ArchitectureGraph';
 import { FileTree } from '@/components/custom/FileTree';
 import { MonacoEditor } from '@/components/custom/MonacoEditor';
 import { ProjectCreationLoader } from '@/components/custom/ProjectCreationLoader';
@@ -14,15 +14,31 @@ import { defaultAiModel } from '@/config/environment';
 import { AiAgent } from '@/containers/aiAgent/AIAgent';
 import { Terminal } from '@/containers/workspace/components/Terminal';
 import { TestPanel } from '@/containers/workspace/components/TestPanel';
+import { useArchitecture } from '@/hooks/useArchitecture';
 import { useFiles } from '@/hooks/useFiles';
-import { emitProjectLog, emitProjectLogs } from '@/hooks/useProjectLogs';
 import { useProjectCreation } from '@/hooks/useProjectCreation';
+import { emitProjectLog } from '@/hooks/useProjectLogs';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectChannel } from '@/hooks/useRealtimeUpdates';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import type { Project, ProjectFile } from '@/types/feathers';
 import { clearSavedPrompt, getSavedPrompt } from '@/utils/promptStorage';
-import { Bot, ChevronRight, Code2, Download, FolderTree, History, Loader2, Play, RotateCcw, Save, Terminal as TerminalIcon, TestTube2, Trash2 } from 'lucide-react';
+import {
+    Bot,
+    ChevronRight,
+    Code2,
+    Download,
+    FolderTree,
+    History,
+    Layers,
+    Loader2,
+    Play,
+    RotateCcw,
+    Save,
+    Terminal as TerminalIcon,
+    TestTube2,
+    Trash2
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -46,7 +62,7 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [selectedFileContent, setSelectedFileContent] = useState<string>('');
     const [sidebarView, setSidebarView] = useState<'files' | 'ai' | 'versions'>('files');
-    const [activeView, setActiveView] = useState<'code' | 'api'>('code');
+    const [activeView, setActiveView] = useState<'code' | 'api' | 'architecture'>('code');
     const [isTerminalOpen, setIsTerminalOpen] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
     const [isBackendReady, setIsBackendReady] = useState(false);
@@ -79,6 +95,7 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
     const { files, loadFiles, updateFile, currentFile, setCurrentFile } = useFiles(initialFiles);
 
     const { snapshots, loading: snapshotsLoading, createSnapshot, rollbackToSnapshot, deleteSnapshot, refresh: refreshSnapshots } = useSnapshots([]);
+    const { architecture, loading: architectureLoading, error: architectureError, loadArchitecture } = useArchitecture();
 
     useProjectChannel(currentProjectId || null);
 
@@ -94,7 +111,7 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
         if (activeView === 'api') {
             setActiveView('code');
         }
-    }, [activeView, currentProjectId]);
+    }, [currentProjectId]);
 
     useEffect(() => {
         if (currentProjectId && isBrowser) {
@@ -107,6 +124,12 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
             refreshSnapshots(currentProjectId);
         }
     }, [currentProjectId, refreshSnapshots, isBrowser]);
+
+    useEffect(() => {
+        if (currentProjectId && isBrowser) {
+            loadArchitecture(currentProjectId);
+        }
+    }, [currentProjectId, loadArchitecture, isBrowser]);
 
     useEffect(() => {
         if (currentProject) {
@@ -392,7 +415,8 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
     }, [currentProjectId]);
 
     /**
-     * Runs backend server for current project.
+     * Runs backend server for current project via SSE streaming.
+     * Logs appear in real-time as the process executes.
      */
     const handleRunBackend = useCallback(async () => {
         if (!currentProjectId) {
@@ -410,62 +434,61 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
         });
 
         try {
-            const result = await runBackend({ projectId: currentProjectId });
+            const response = await fetch('/api/run-backend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: currentProjectId })
+            });
 
-            if (result.data?.logs?.length) {
-                emitProjectLogs(
-                    currentProjectId,
-                    result.data.logs.map((entry) => ({
-                        type: entry.type,
-                        message: entry.message,
-                        source: entry.source || 'runner'
-                    }))
-                );
+            if (!response.ok || !response.body) {
+                throw new Error(`Failed to start backend run: ${response.statusText}`);
             }
 
-            if (!result.success) {
-                emitProjectLog({
-                    projectId: currentProjectId,
-                    type: 'error',
-                    message: result.error,
-                    source: 'workspace'
-                });
-                throw new Error(result.error);
-            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-            const data = result.data;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
 
-            if (data.success) {
-                setIsBackendReady(true);
-                emitProjectLog({
-                    projectId: currentProjectId,
-                    type: 'success',
-                    message: data.message || 'Backend server started successfully',
-                    source: 'workspace'
-                });
-                toast.success('Backend server started successfully!', {
-                    description: data.project?.name ? `Project: ${data.project.name}` : undefined,
-                    duration: 5000
-                });
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
 
-                console.log('=== Backend Server Information ===');
-                console.log(`Message: ${data.message}`);
-                console.log(`Project: ${data.project?.name}`);
-                console.log('');
-                console.log('Access Points:');
-                console.log(`API: ${data.server?.url}`);
-                console.log(`Docs: ${data.server?.docsUrl}`);
-                console.log(`ReDoc: ${data.server?.redocUrl}`);
-                console.log(`OpenAPI: ${data.server?.openapiUrl}`);
-            } else {
-                setIsBackendReady(false);
-                emitProjectLog({
-                    projectId: currentProjectId,
-                    type: 'error',
-                    message: data.details || data.message || 'Failed to start backend',
-                    source: 'workspace'
-                });
-                toast.error('Failed to start backend');
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.event === 'log') {
+                            emitProjectLog({
+                                projectId: currentProjectId,
+                                type: data.type,
+                                message: data.message,
+                                source: data.source || 'runner'
+                            });
+                        } else if (data.event === 'done') {
+                            const result = data.result;
+                            if (result?.data?.success) {
+                                setIsBackendReady(true);
+                                toast.success('Backend server started successfully!');
+                            } else {
+                                setIsBackendReady(false);
+                                toast.error(result?.error || 'Failed to start backend');
+                            }
+                        } else if (data.event === 'error') {
+                            emitProjectLog({
+                                projectId: currentProjectId,
+                                type: 'error',
+                                message: data.message,
+                                source: 'runner'
+                            });
+                            toast.error(data.message || 'Failed to start backend');
+                        }
+                    } catch {
+                        // ignore parse errors on partial chunks
+                    }
+                }
             }
         } catch (error) {
             setIsBackendReady(false);
@@ -604,6 +627,15 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
                         <TestTube2 className="w-3.5 h-3.5" />
                         API Testing
                     </button>
+                    <button
+                        onClick={() => setActiveView('architecture')}
+                        className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                            activeView === 'architecture' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        <Layers className="w-3.5 h-3.5" />
+                        Architecture
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -624,7 +656,7 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
                                     <button
                                         key={view}
                                         onClick={() => setSidebarView(view)}
-                                        className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                                        className={`flex-1 px-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
                                             sidebarView === view ? 'bg-white text-gray-900 border-b-2 border-black' : 'text-gray-500 hover:text-gray-900 bg-gray-50'
                                         }`}
                                     >
@@ -788,6 +820,19 @@ export function Workspace({ currentUser, initialProjectId, initialProject = null
                                                 )}
                                             </div>
                                         </>
+                                    ) : activeView === 'architecture' ? (
+                                        <ArchitectureGraph
+                                            architecture={architecture}
+                                            loading={architectureLoading}
+                                            error={architectureError}
+                                            onRefresh={
+                                                currentProjectId
+                                                    ? () => {
+                                                          loadArchitecture(currentProjectId);
+                                                      }
+                                                    : undefined
+                                            }
+                                        />
                                     ) : isBackendReady ? (
                                         <TestPanel projectId={currentProjectId as string} />
                                     ) : (

@@ -2,7 +2,16 @@
 
 import { createAIStream } from '@/api/aiStream/createAIStream';
 import feathersClient from '@/services/featherClient';
-import { AIFileUpdate, AIStreamChunk, AIStreamContext, AIStreamFileUpdates, ConversationHistoryItem, StreamAIRequest } from '@/types/feathers';
+import {
+    AIAgentStepEvent,
+    AIFileUpdate,
+    AIStreamChunk,
+    AIStreamContext,
+    AIStreamFileUpdates,
+    AIWritePreviewEvent,
+    ConversationHistoryItem,
+    StreamAIRequest
+} from '@/types/feathers';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface UseAIStreamReturn {
@@ -12,6 +21,8 @@ export interface UseAIStreamReturn {
     currentChunk: AIStreamChunk | null;
     accumulatedContent: string;
     fileUpdates: AIFileUpdate[];
+    agentSteps: AIAgentStepEvent[];
+    writePreviews: AIWritePreviewEvent[];
     messageId: string | null;
 
     // Methods
@@ -26,6 +37,8 @@ export function useAIStream(): UseAIStreamReturn {
     const [currentChunk, setCurrentChunk] = useState<AIStreamChunk | null>(null);
     const [accumulatedContent, setAccumulatedContent] = useState('');
     const [fileUpdates, setFileUpdates] = useState<AIFileUpdate[]>([]);
+    const [agentSteps, setAgentSteps] = useState<AIAgentStepEvent[]>([]);
+    const [writePreviews, setWritePreviews] = useState<AIWritePreviewEvent[]>([]);
     const [messageId, setMessageId] = useState<string | null>(null);
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
@@ -43,6 +56,8 @@ export function useAIStream(): UseAIStreamReturn {
             setError(null);
             setAccumulatedContent('');
             setFileUpdates([]);
+            setAgentSteps([]);
+            setWritePreviews([]);
             setCurrentProjectId(request.projectId);
             setCurrentChunk(null);
             setMessageId(null);
@@ -71,6 +86,8 @@ export function useAIStream(): UseAIStreamReturn {
         setCurrentChunk(null);
         setAccumulatedContent('');
         setFileUpdates([]);
+        setAgentSteps([]);
+        setWritePreviews([]);
         setMessageId(null);
         setCurrentProjectId(null);
     }, []);
@@ -128,14 +145,36 @@ export function useAIStream(): UseAIStreamReturn {
             setFileUpdates(data.updates);
         };
 
+        const handleAgentStep = (data: AIAgentStepEvent) => {
+            if (currentProjectId && data.projectId !== currentProjectId) {
+                return;
+            }
+
+            setAgentSteps((prev) => [...prev, data]);
+        };
+
+        const handleWritePreview = (data: AIWritePreviewEvent) => {
+            if (currentProjectId && data.projectId !== currentProjectId) {
+                return;
+            }
+
+            setWritePreviews((prev) => [...prev, data]);
+        };
+
         service.removeListener('chunk', handleChunk);
         service.removeListener('file-updates', handleFileUpdates);
+        service.removeListener('agent-step', handleAgentStep);
+        service.removeListener('write-preview', handleWritePreview);
         service.on('chunk', handleChunk);
         service.on('file-updates', handleFileUpdates);
+        service.on('agent-step', handleAgentStep);
+        service.on('write-preview', handleWritePreview);
 
         return () => {
             service.removeListener('chunk', handleChunk);
             service.removeListener('file-updates', handleFileUpdates);
+            service.removeListener('agent-step', handleAgentStep);
+            service.removeListener('write-preview', handleWritePreview);
         };
     }, [isBrowser, currentProjectId]);
 
@@ -146,6 +185,8 @@ export function useAIStream(): UseAIStreamReturn {
         currentChunk,
         accumulatedContent,
         fileUpdates,
+        agentSteps,
+        writePreviews,
         messageId,
 
         // Methods

@@ -8,11 +8,13 @@ import { type FileUpdate } from '@/containers/workspace/components/FileUpdatePre
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { filesService, type File as FileType } from '@/services/api/files';
 import { messagesService, type Message } from '@/services/api/messages';
+import { type AIAgentStepEvent, type AIStreamContext, type AIWritePreviewEvent } from '@/types/feathers';
 import { validatePrompt } from '@/utils/promptValidation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_CONTEXT_FILE_TREE_ENTRIES = 250;
 
 interface StreamMessage {
     role: 'system' | 'user' | 'assistant';
@@ -24,7 +26,7 @@ const STREAM_POLL_TIMEOUT_MS = 90000;
 const INITIAL_MESSAGES_LIMIT = 10;
 const OLDER_MESSAGES_BATCH_SIZE = 50;
 const FILE_UPDATE_PATTERN =
-    /(?:^|\n)\s*\*{0,2}\s*FILE_UPDATE\s*:\s*(.+?)\s*\*{0,2}\s*\n\s*\*{0,2}\s*ACTION\s*:\s*(create|modify|delete)\s*\*{0,2}\s*\n\s*\*{0,2}\s*DESCRIPTION\s*:\s*(.+?)\s*\*{0,2}\s*\n```([\w+-]*)\n([\s\S]*?)```/gi;
+    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:[-*]\s*)?\*{0,2}\s*FILE_UPDATE\s*:\s*(.+?)\s*\*{0,2}\s*\n\s*(?:#{1,6}\s*)?(?:[-*]\s*)?\*{0,2}\s*ACTION\s*:\s*(create|modify|delete)\s*\*{0,2}\s*\n\s*(?:#{1,6}\s*)?(?:[-*]\s*)?\*{0,2}\s*DESCRIPTION\s*:\s*(.+?)\s*\*{0,2}\s*\n```([\w+-]*)\n([\s\S]*?)```/gi;
 const SEARCH_REPLACE_BLOCK_PATTERN = /<<<<<<<\s*SEARCH\s*\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>\s*REPLACE/g;
 
 interface SearchReplaceBlock {
@@ -40,10 +42,13 @@ export interface UseAIAgentReturn {
     setInput: (value: string) => void;
     isLoading: boolean;
     isStreaming: boolean;
+    agentSteps: AIAgentStepEvent[];
     isApplyingUpdates: boolean;
     applyingUpdateKeys: string[];
     fileUpdates: FileUpdate[];
+    retryingMessageId: string | null;
     handleSubmit: (e: React.FormEvent) => void;
+    retryMessage: (messageId: string) => Promise<void>;
     loadOlderMessages: () => Promise<void>;
     handleAcceptUpdate: (update: FileUpdate) => Promise<void>;
     handleRejectUpdate: (update: FileUpdate) => void;
@@ -68,6 +73,8 @@ interface AIStreamFileUpdatesEvent {
     updates: FileUpdate[];
 }
 
+type AIStreamWritePreviewEvent = AIWritePreviewEvent;
+
 const STREAMING_MESSAGE_ID = '__mocky_streaming__';
 
 function toId(value: unknown): string {
@@ -84,6 +91,25 @@ function toId(value: unknown): string {
 
 function normalizePath(value: string): string {
     return value.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '').trim();
+}
+
+function buildProjectContext(files: FileType[], selectedFile?: string, selectedFileContent?: string): AIStreamContext {
+    const normalizedSelectedFile = selectedFile ? normalizePath(selectedFile) : undefined;
+    const fileTree = files.slice(0, MAX_CONTEXT_FILE_TREE_ENTRIES).map((file) => ({
+        path: normalizePath(file.name),
+        size: file.size,
+        fileType: file.fileType
+    }));
+
+    const context: AIStreamContext = {
+        files: fileTree.map((entry) => entry.path),
+        fileTree,
+        ...(normalizedSelectedFile ? { selectedFile: normalizedSelectedFile } : {}),
+        ...(selectedFileContent ? { selectedContent: selectedFileContent } : {}),
+        ...(normalizedSelectedFile ? { pinnedFiles: [normalizedSelectedFile], allowedEditFiles: [normalizedSelectedFile] } : {})
+    };
+
+    return context;
 }
 
 function parseFileUpdatesFromContent(content: string): FileUpdate[] {
@@ -136,6 +162,69 @@ function mergeFileUpdates(existing: FileUpdate[], incoming: FileUpdate[]): FileU
     }
 
     return Array.from(map.values());
+}
+
+function mergeAgentSteps(existing: AIAgentStepEvent[], incoming: AIAgentStepEvent[]): AIAgentStepEvent[] {
+    if (incoming.length === 0) return existing;
+
+    const map = new Map<string, AIAgentStepEvent>();
+    for (const step of existing) {
+        map.set(`${step.createdAt}:${step.type}:${step.title}`, step);
+    }
+
+    for (const step of incoming) {
+        map.set(`${step.createdAt}:${step.type}:${step.title}`, step);
+    }
+
+    return Array.from(map.values()).sort((left, right) => left.createdAt - right.createdAt);
+}
+
+function inferLanguageFromFilename(filename: string): string {
+    const ext = normalizePath(filename).split('.').pop()?.toLowerCase();
+
+    switch (ext) {
+        case 'ts':
+        case 'tsx':
+            return 'typescript';
+        case 'js':
+        case 'jsx':
+            return 'javascript';
+        case 'json':
+            return 'json';
+        case 'css':
+            return 'css';
+        case 'scss':
+            return 'scss';
+        case 'html':
+            return 'html';
+        case 'md':
+            return 'markdown';
+        case 'py':
+            return 'python';
+        case 'go':
+            return 'go';
+        case 'java':
+            return 'java';
+        case 'rs':
+            return 'rust';
+        case 'yml':
+        case 'yaml':
+            return 'yaml';
+        default:
+            return 'text';
+    }
+}
+
+function toFileUpdateFromWritePreview(preview: AIStreamWritePreviewEvent): FileUpdate {
+    const filename = normalizePath(preview.filename);
+
+    return {
+        filename,
+        action: preview.action,
+        description: preview.description || 'Proposed change',
+        content: preview.newContent || '',
+        language: inferLanguageFromFilename(filename)
+    };
 }
 
 function parseSearchReplaceBlocks(content: string): SearchReplaceBlock[] {
@@ -254,8 +343,11 @@ export function useAIAgent(
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
+    const [agentSteps, setAgentSteps] = useState<AIAgentStepEvent[]>([]);
     const [applyingUpdateKeys, setApplyingUpdateKeys] = useState<string[]>([]);
     const [fileUpdates, setFileUpdates] = useState<FileUpdate[]>([]);
+    const [retryingMessageId, setRetryingMessageId] = useState<string | null>(null);
+    const hasStructuredPreviewsRef = useRef(false);
 
     const wait = useCallback((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)), []);
 
@@ -266,6 +358,8 @@ export function useAIAgent(
         let cancelled = false;
         setMessages([]);
         setFileUpdates([]);
+        setAgentSteps([]);
+        hasStructuredPreviewsRef.current = false;
         setHasOlderMessages(false);
         setIsLoadingOlderMessages(false);
         setOldestMessageCreatedAt(null);
@@ -319,7 +413,7 @@ export function useAIAgent(
 
     // Real-time: append new messages from server (avoids duplicates)
     const handleMessageCreated = useCallback((message: Message) => {
-        if (message.role === 'assistant') {
+        if (message.role === 'assistant' && !hasStructuredPreviewsRef.current) {
             const parsedUpdates = parseFileUpdatesFromContent(message.content);
             if (parsedUpdates.length > 0) {
                 setFileUpdates((prev) => mergeFileUpdates(prev, parsedUpdates));
@@ -382,6 +476,7 @@ export function useAIAgent(
     const handleStreamFileUpdates = useCallback(
         (payload: AIStreamFileUpdatesEvent) => {
             if (toId(payload.projectId) !== toId(projectId)) return;
+            hasStructuredPreviewsRef.current = true;
             const parsed = (payload.updates || []).map((update) => ({
                 ...update,
                 filename: normalizePath(update.filename)
@@ -391,19 +486,34 @@ export function useAIAgent(
         [projectId]
     );
 
+    const handleAgentStep = useCallback(
+        (payload: AIAgentStepEvent) => {
+            if (toId(payload.projectId) !== toId(projectId)) return;
+            setAgentSteps((prev) => mergeAgentSteps(prev, [payload]));
+        },
+        [projectId]
+    );
+
+    const handleWritePreview = useCallback(
+        (payload: AIStreamWritePreviewEvent) => {
+            if (toId(payload.projectId) !== toId(projectId)) return;
+            hasStructuredPreviewsRef.current = true;
+            setFileUpdates((prev) => mergeFileUpdates(prev, [toFileUpdateFromWritePreview(payload)]));
+        },
+        [projectId]
+    );
+
     useRealtimeUpdates<AIStreamChunkEvent>('aiStream', 'chunk', handleStreamChunk, (chunk) => toId(chunk.projectId) === toId(projectId));
     useRealtimeUpdates<AIStreamFileUpdatesEvent>('aiStream', 'file-updates', handleStreamFileUpdates, (payload) => toId(payload.projectId) === toId(projectId));
+    useRealtimeUpdates<AIAgentStepEvent>('aiStream', 'agent-step', handleAgentStep, (payload) => toId(payload.projectId) === toId(projectId));
+    useRealtimeUpdates<AIStreamWritePreviewEvent>('aiStream', 'write-preview', handleWritePreview, (payload) => toId(payload.projectId) === toId(projectId));
 
     const streamAIResponse = useCallback(
         async (conversationMessages: StreamMessage[], currentProjectId: string, latestKnownCreatedAt: number) => {
             try {
                 setIsStreaming(true);
 
-                const projectContext = {
-                    files: files.map((f) => f.name),
-                    ...(selectedFile ? { selectedFile } : {}),
-                    ...(selectedFileContent ? { selectedContent: selectedFileContent } : {})
-                };
+                const projectContext = buildProjectContext(files, selectedFile, selectedFileContent);
 
                 const streamResult = await createAIStream({
                     projectId: currentProjectId,
@@ -420,9 +530,11 @@ export function useAIAgent(
                             const withoutStreaming = prev.filter((m) => m._id !== STREAMING_MESSAGE_ID);
                             return mergeMessagesById(withoutStreaming, [assistantMessage]);
                         });
-                        const parsedUpdates = parseFileUpdatesFromContent(assistantMessage.content);
-                        if (parsedUpdates.length > 0) {
-                            setFileUpdates((prev) => mergeFileUpdates(prev, parsedUpdates));
+                        if (!hasStructuredPreviewsRef.current) {
+                            const parsedUpdates = parseFileUpdatesFromContent(assistantMessage.content);
+                            if (parsedUpdates.length > 0) {
+                                setFileUpdates((prev) => mergeFileUpdates(prev, parsedUpdates));
+                            }
                         }
                         setIsStreaming(false);
                         return;
@@ -451,9 +563,11 @@ export function useAIAgent(
                             .slice()
                             .reverse()
                             .find((m) => m.role === 'assistant');
-                        const parsedUpdates = parseFileUpdatesFromContent(latestAssistant?.content || '');
-                        if (parsedUpdates.length > 0) {
-                            setFileUpdates((prev) => mergeFileUpdates(prev, parsedUpdates));
+                        if (!hasStructuredPreviewsRef.current) {
+                            const parsedUpdates = parseFileUpdatesFromContent(latestAssistant?.content || '');
+                            if (parsedUpdates.length > 0) {
+                                setFileUpdates((prev) => mergeFileUpdates(prev, parsedUpdates));
+                            }
                         }
                         settled = true;
                         break;
@@ -474,20 +588,20 @@ export function useAIAgent(
         [files, selectedFile, selectedFileContent, wait]
     );
 
-    const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
-            e.preventDefault();
-            if (!input.trim() || isLoading || isStreaming || !projectId) return;
+    const sendPrompt = useCallback(
+        async (messageContent: string) => {
+            if (!projectId) return;
 
-            const messageContent = input.trim();
-            setInput('');
+            const normalized = messageContent.trim();
+            if (!normalized) return;
+
             setIsLoading(true);
 
             try {
-                const userMessage = await messagesService.create({ projectId, role: 'user', type: 'text', content: messageContent });
+                const userMessage = await messagesService.create({ projectId, role: 'user', type: 'text', content: normalized });
                 setMessages((prev) => (prev.find((m) => m._id === userMessage._id) ? prev : [...prev, userMessage]));
 
-                const validation = await validatePromptWithAI(messageContent);
+                const validation = await validatePromptWithAI(normalized);
 
                 if (!validation.isValid) {
                     const followUp = validation.suggestedQuestions?.join('\n\n') ?? "I couldn't understand your request. Could you provide more details?";
@@ -496,20 +610,62 @@ export function useAIAgent(
                     return;
                 }
 
-                const conversationMessages: StreamMessage[] = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: messageContent }];
+                const conversationMessages: StreamMessage[] = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: normalized }];
                 const latestKnownCreatedAt = messages[messages.length - 1]?.createdAt ?? 0;
 
+                hasStructuredPreviewsRef.current = false;
+                setAgentSteps([]);
+
                 await streamAIResponse(conversationMessages, projectId, latestKnownCreatedAt);
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [messages, projectId, streamAIResponse]
+    );
+
+    const handleSubmit = useCallback(
+        async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!input.trim() || isLoading || isStreaming || !projectId) return;
+
+            const messageContent = input.trim();
+            setInput('');
+
+            try {
+                await sendPrompt(messageContent);
             } catch (error) {
                 toast.error('Failed to send message', {
                     description: error instanceof Error ? error.message : 'Unknown error',
                     duration: 5000
                 });
-            } finally {
-                setIsLoading(false);
             }
         },
-        [input, isLoading, isStreaming, projectId, messages, streamAIResponse]
+        [input, isLoading, isStreaming, projectId, sendPrompt]
+    );
+
+    const retryMessage = useCallback(
+        async (messageId: string) => {
+            if (!projectId || isLoading || isStreaming) return;
+
+            const sourceMessage = messages.find((message) => message._id === messageId);
+            if (!sourceMessage || sourceMessage.role !== 'user' || !sourceMessage.content?.trim()) {
+                toast.error('This message cannot be retried');
+                return;
+            }
+
+            setRetryingMessageId(messageId);
+            try {
+                await sendPrompt(sourceMessage.content);
+            } catch (error) {
+                toast.error('Failed to retry message', {
+                    description: error instanceof Error ? error.message : 'Unknown error'
+                });
+            } finally {
+                setRetryingMessageId(null);
+            }
+        },
+        [isLoading, isStreaming, messages, projectId, sendPrompt]
     );
 
     const handleAcceptUpdate = useCallback(
@@ -557,8 +713,7 @@ export function useAIAgent(
                             name: normalizedFilename,
                             key,
                             fileType: normalizedFilename.split('.').pop() || 'text',
-                            size: contentBytes.length,
-                            currentVersion: 1
+                            size: contentBytes.length
                         });
                         onFileApplied?.({
                             action: 'create',
@@ -604,10 +759,13 @@ export function useAIAgent(
         setInput,
         isLoading,
         isStreaming,
+        agentSteps,
         isApplyingUpdates: applyingUpdateKeys.length > 0,
         applyingUpdateKeys,
         fileUpdates,
+        retryingMessageId,
         handleSubmit,
+        retryMessage,
         loadOlderMessages,
         handleAcceptUpdate,
         handleRejectUpdate,

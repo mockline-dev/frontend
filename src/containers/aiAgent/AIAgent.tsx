@@ -3,10 +3,13 @@
 import { fetchFileContent } from '@/api/files/fetchFileContent';
 import { Button } from '@/components/ui/button';
 import { FileUpdatePreview } from '@/containers/workspace/components/FileUpdatePreview';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useAIAgent } from '@/hooks/useAIAgent';
 import { type File as FileType } from '@/services/api/files';
-import { Loader2, Send } from 'lucide-react';
+import { type AIAgentStepEvent } from '@/types/feathers';
+import { Activity, Brain, CheckCircle2, Copy, Loader2, RefreshCcw, Send, Sparkles, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 interface AIAgentProps {
     projectId?: string;
@@ -24,6 +27,33 @@ const suggestedPrompts = [
     'Add Docker configuration'
 ];
 
+function getStepIcon(stepType: AIAgentStepEvent['type']) {
+    switch (stepType) {
+        case 'thinking':
+            return <Brain className="w-3.5 h-3.5 text-violet-600" />;
+        case 'tool_call':
+        case 'tool_result':
+            return <Wrench className="w-3.5 h-3.5 text-blue-600" />;
+        case 'status':
+        default:
+            return <Activity className="w-3.5 h-3.5 text-gray-600" />;
+    }
+}
+
+function getStepTypeLabel(stepType: AIAgentStepEvent['type']): string {
+    switch (stepType) {
+        case 'thinking':
+            return 'Thinking';
+        case 'tool_call':
+            return 'Tool Call';
+        case 'tool_result':
+            return 'Tool Result';
+        case 'status':
+        default:
+            return 'Status';
+    }
+}
+
 export function AiAgent({ projectId, files = [], selectedFile, selectedFileContent, onFileApplied }: AIAgentProps) {
     const {
         messages,
@@ -33,10 +63,13 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
         setInput,
         isLoading,
         isStreaming,
+        agentSteps,
         isApplyingUpdates,
         applyingUpdateKeys,
         fileUpdates,
+        retryingMessageId,
         handleSubmit,
+        retryMessage,
         loadOlderMessages,
         handleAcceptUpdate,
         handleRejectUpdate,
@@ -47,6 +80,9 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const previousMessageCountRef = useRef(0);
     const [currentFileContents, setCurrentFileContents] = useState<Map<string, string>>(new Map());
+    const [showAllSteps, setShowAllSteps] = useState(false);
+    const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         const container = messagesContainerRef.current;
@@ -122,14 +158,51 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
     }, [fileUpdates, files, selectedFile, selectedFileContent]);
 
     const previewContents = useMemo(() => currentFileContents, [currentFileContents]);
+    const visibleSteps = useMemo(() => (showAllSteps ? agentSteps : agentSteps.slice(-3)), [agentSteps, showAllSteps]);
+    const currentStep = agentSteps[agentSteps.length - 1];
 
     const showTypingIndicator = isLoading || isStreaming;
 
+    const stepStatusLabel = currentStep?.title || 'Thinking through your request';
+
+    const formatTime = (value?: number) => {
+        if (!value) return '';
+        return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const copyMessage = async (messageId: string, content: string) => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setCopiedMessageId(messageId);
+            toast.success('Message copied');
+            window.setTimeout(() => {
+                setCopiedMessageId((prev) => (prev === messageId ? null : prev));
+            }, 1200);
+        } catch {
+            toast.error('Failed to copy message');
+        }
+    };
+
+    const handleComposerKeyDown = async (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            await handleSubmit(event as unknown as React.FormEvent);
+        }
+    };
+
     return (
         <div className="h-full flex flex-col bg-white">
-            <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
+            <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-linear-to-b from-white to-gray-50"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+                aria-label="AI assistant conversation"
+            >
                 {isLoadingOlderMessages && (
-                    <div className="flex items-center justify-center py-2">
+                    <div className="flex items-center justify-center py-2" role="status" aria-live="polite" aria-label="Loading older chat messages">
                         <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                         <span className="text-xs text-gray-500 ml-2">Loading older messages...</span>
                     </div>
@@ -142,33 +215,125 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
                 )}
 
                 {messages.map((message) => (
-                    <div key={message._id} className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                        key={message._id}
+                        className={`group flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        aria-label={message.role === 'user' ? 'User message' : 'Assistant message'}
+                    >
                         {message.role === 'assistant' && (
-                            <div className="w-6 h-6 bg-linear-to-br from-violet-500 to-purple-600 rounded-md flex items-center justify-center shrink-0">
-                                <span className="text-white text-xs font-bold">M</span>
+                            <div className="w-7 h-7 bg-linear-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                                <Sparkles className="w-3.5 h-3.5 text-white" />
                             </div>
                         )}
-                        <div className={`max-w-[85%] rounded-lg px-3 py-2 ${message.role === 'user' ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'}`}>
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        <div
+                            className={`max-w-[88%] rounded-2xl px-3 py-2.5 border ${
+                                message.role === 'user' ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200 shadow-xs'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <span className={`text-[10px] uppercase tracking-wide ${message.role === 'user' ? 'text-gray-300' : 'text-gray-500'}`}>
+                                    {message.role === 'user' ? 'You' : 'Mocky'}
+                                </span>
+                                <span className={`text-[10px] ${message.role === 'user' ? 'text-gray-300' : 'text-gray-500'}`}>{formatTime(message.createdAt)}</span>
+                            </div>
+                            <p className={`${isMobile ? 'text-[13px]' : 'text-sm'} leading-relaxed whitespace-pre-wrap`}>{message.content}</p>
+
+                            <div className="mt-2 flex items-center justify-end gap-1.5">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className={`h-8 px-2 text-[11px] ${message.role === 'user' ? 'text-gray-200 hover:text-white hover:bg-white/10' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                                    onClick={() => copyMessage(message._id, message.content)}
+                                    aria-label={`Copy ${message.role} message`}
+                                >
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    {copiedMessageId === message._id ? 'Copied' : 'Copy'}
+                                </Button>
+
+                                {message.role === 'user' && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-[11px] text-gray-200 hover:text-white hover:bg-white/10"
+                                        onClick={() => retryMessage(message._id)}
+                                        disabled={retryingMessageId === message._id || isLoading || isStreaming}
+                                        aria-label="Retry from this message"
+                                    >
+                                        {retryingMessageId === message._id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
+                                        Retry
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ))}
 
                 {showTypingIndicator && (
-                    <div className="flex gap-2">
-                        <div className="w-6 h-6 bg-linear-to-br from-violet-500 to-purple-600 rounded-md flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">M</span>
+                    <div className="flex gap-2" role="status" aria-live="polite" aria-label="Assistant is composing a response">
+                        <div className="w-7 h-7 bg-linear-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <Sparkles className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <div className="bg-gray-100 rounded-lg px-3 py-2">
+                        <div className="bg-white border border-gray-200 rounded-2xl px-3 py-2 shadow-xs">
                             <div className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:-0.2s]" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:-0.1s]" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" />
-                                <span className="text-xs text-gray-600 ml-1">Mocky is typing...</span>
+                                <span className="text-xs text-gray-700 ml-1">{stepStatusLabel}</span>
                             </div>
                         </div>
                     </div>
                 )}
+
+                {agentSteps.length > 0 && (
+                    <div className="border border-gray-200 rounded-xl bg-white p-3 mt-2 shadow-xs" role="status" aria-live="polite" aria-label="Agent activity timeline">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                {isStreaming ? <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-600" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />}
+                                <span className="text-xs font-medium text-gray-900">Agent activity</span>
+                            </div>
+                            {agentSteps.length > 3 && (
+                                <button
+                                    onClick={() => setShowAllSteps((prev) => !prev)}
+                                    className="text-[11px] text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline"
+                                    type="button"
+                                    aria-expanded={showAllSteps}
+                                    aria-label={showAllSteps ? 'Show recent agent steps' : `Show all ${agentSteps.length} agent steps`}
+                                >
+                                    {showAllSteps ? 'Show recent' : `Show all (${agentSteps.length})`}
+                                </button>
+                            )}
+                        </div>
+
+                        {currentStep && (
+                            <p className="text-[11px] text-gray-600 mt-1.5">
+                                Current: <span className="text-gray-900 font-medium">{currentStep.title}</span>
+                            </p>
+                        )}
+
+                        <div className="mt-2 space-y-1.5" role="list" aria-label="Agent steps">
+                            {visibleSteps.map((step) => (
+                                <div
+                                    key={`${step.createdAt}-${step.type}-${step.title}`}
+                                    className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2"
+                                    role="listitem"
+                                >
+                                    <div className="mt-0.5">{getStepIcon(step.type)}</div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="text-[11px] font-medium text-gray-900">{step.title}</span>
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">{getStepTypeLabel(step.type)}</span>
+                                            <span className="text-[10px] text-gray-400">{formatTime(step.createdAt)}</span>
+                                        </div>
+                                        {step.detail && <p className="text-[11px] text-gray-600 mt-0.5">{step.detail}</p>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 
@@ -185,14 +350,15 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
             )}
 
             {messages.length <= 1 && (
-                <div className="px-3 pb-2 border-t pt-2 border-gray-200">
-                    <p className="text-[10px] text-gray-500 mb-1.5 uppercase tracking-wide font-medium">Quick Actions</p>
-                    <div className="flex flex-col gap-1.5">
+                <div className="px-3 pb-3 border-t pt-3 border-gray-200 bg-white">
+                    <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-wide font-medium">Quick actions</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {suggestedPrompts.map((prompt, index) => (
                             <button
                                 key={index}
                                 onClick={() => setInput(prompt)}
-                                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1.5 rounded border border-gray-200 transition-colors text-left"
+                                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg border border-gray-200 transition-colors text-left"
+                                aria-label={`Use quick action: ${prompt}`}
                             >
                                 {prompt}
                             </button>
@@ -201,18 +367,28 @@ export function AiAgent({ projectId, files = [], selectedFile, selectedFileConte
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="border-t border-gray-200 p-2.5">
-                <div className="flex gap-2">
-                    <input
-                        type="text"
+            <form onSubmit={handleSubmit} className="border-t border-gray-200 p-3 bg-white">
+                <div className="flex items-end gap-2">
+                    <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleComposerKeyDown}
                         placeholder="Ask Mocky..."
-                        className="flex-1 bg-white border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                        rows={1}
+                        className={`flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none ${
+                            isMobile ? 'text-[13px] min-h-12' : 'text-sm min-h-13'
+                        }`}
                         disabled={isLoading || isStreaming}
+                        aria-label="Message Mocky"
                     />
-                    <Button type="submit" disabled={!input.trim() || isLoading || isStreaming} size="icon" className="bg-black hover:bg-gray-800 text-white h-7 w-7">
-                        {isLoading || isStreaming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    <Button
+                        type="submit"
+                        disabled={!input.trim() || isLoading || isStreaming}
+                        size="icon"
+                        className="bg-black hover:bg-gray-800 text-white h-11 w-11 rounded-xl"
+                        aria-label={isLoading || isStreaming ? 'Sending message' : 'Send message'}
+                    >
+                        {isLoading || isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </Button>
                 </div>
             </form>

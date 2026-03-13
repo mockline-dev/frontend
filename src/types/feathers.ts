@@ -154,6 +154,52 @@ export interface UpdateMessageData {
     status?: string;
 }
 
+// ============================================================================
+// Architecture Types
+// ============================================================================
+
+export interface ArchService {
+    name: string;
+    description?: string;
+    routes: string[];
+    methods?: Array<{
+        name: string;
+        httpMethod?: string;
+        path?: string;
+        params?: string[];
+        returnType?: string;
+    }>;
+    dependencies?: string[];
+}
+
+export interface ArchModel {
+    name: string;
+    fields: Array<{ name: string; type: string; required: boolean; indexed?: boolean; unique?: boolean }>;
+}
+
+export interface ArchRelation {
+    from: string;
+    to: string;
+    type: 'one-to-many' | 'many-to-many' | 'one-to-one';
+}
+
+export interface ArchRoute {
+    method: string;
+    path: string;
+    service: string;
+}
+
+export interface Architecture {
+    _id: string;
+    projectId: string;
+    services: ArchService[];
+    models: ArchModel[];
+    relations: ArchRelation[];
+    routes: ArchRoute[];
+    serviceDependencies?: Array<{ from: string; to: string }>;
+    updatedAt: number;
+}
+
 export interface ConversationHistoryItem {
     role: 'user' | 'system' | 'assistant';
     content: string;
@@ -186,10 +232,42 @@ export interface AIStreamFileUpdates {
     snapshotId?: string;
 }
 
+export interface AIAgentStepEvent {
+    projectId: string;
+    type: 'thinking' | 'tool_call' | 'tool_result' | 'status';
+    title: string;
+    detail?: string;
+    createdAt: number;
+}
+
+export interface AIWritePreviewEvent {
+    projectId: string;
+    filename: string;
+    action: 'create' | 'modify' | 'delete';
+    oldContent?: string;
+    newContent?: string;
+    description?: string;
+}
+
+export interface AIContextFileTreeEntry {
+    path: string;
+    size?: number;
+    fileType?: string;
+}
+
+export interface AIContextSelectionRange {
+    startLine: number;
+    endLine: number;
+}
+
 export interface AIStreamContext {
     files?: string[];
+    fileTree?: AIContextFileTreeEntry[];
     selectedFile?: string;
     selectedContent?: string;
+    selectedRange?: AIContextSelectionRange;
+    pinnedFiles?: string[];
+    allowedEditFiles?: string[];
     [key: string]: unknown;
 }
 

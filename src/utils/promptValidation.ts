@@ -100,6 +100,14 @@ const DIAGNOSTIC_KEYWORDS = [
 
 const DIAGNOSTIC_PATTERNS = [/\berror\b/i, /\bfailed\b/i, /traceback/i, /\bexception\b/i, /\bts\d{4}\b/i, /no matching distribution found/i];
 
+const FILE_REFERENCE_PATTERN = /\b([\w./-]+\.(py|ts|tsx|js|jsx|json|yml|yaml|md|txt|env|toml|ini|sql))\b/i;
+const FILE_QUERY_PATTERNS = [
+    /\bwhat\s+is\s+in\s+[\w./-]+\b/i,
+    /\bshow\s+(me\s+)?([\w./-]+\.(py|ts|tsx|js|jsx|json|yml|yaml|md|txt|env|toml|ini|sql))\b/i,
+    /\b(content|contents)\s+of\s+([\w./-]+\.(py|ts|tsx|js|jsx|json|yml|yaml|md|txt|env|toml|ini|sql))\b/i,
+    /\b(open|read|inspect|explain)\s+([\w./-]+\.(py|ts|tsx|js|jsx|json|yml|yaml|md|txt|env|toml|ini|sql))\b/i
+];
+
 // Common non-backend prompts that should be filtered out
 const INVALID_PATTERNS = [
     /^(hi|hello|hey|test|testing)$/i,
@@ -144,6 +152,8 @@ export function validatePrompt(prompt: string): PromptValidationResult {
 
     const hasDiagnosticKeyword = DIAGNOSTIC_KEYWORDS.some((keyword) => trimmedPrompt.includes(keyword));
     const hasDiagnosticPattern = DIAGNOSTIC_PATTERNS.some((pattern) => pattern.test(prompt));
+    const hasFileReference = FILE_REFERENCE_PATTERN.test(prompt);
+    const isFileQuery = FILE_QUERY_PATTERNS.some((pattern) => pattern.test(prompt));
 
     if (hasDiagnosticKeyword || hasDiagnosticPattern) {
         return {
@@ -151,6 +161,16 @@ export function validatePrompt(prompt: string): PromptValidationResult {
             confidence: 0.95,
             category: 'backend',
             reason: 'Prompt contains runtime/build diagnostics and should be handled directly.',
+            enhancedPrompt: prompt
+        };
+    }
+
+    if (hasFileReference || isFileQuery) {
+        return {
+            isValid: true,
+            confidence: 0.9,
+            category: 'backend',
+            reason: 'Prompt references project file content and should be handled directly.',
             enhancedPrompt: prompt
         };
     }
