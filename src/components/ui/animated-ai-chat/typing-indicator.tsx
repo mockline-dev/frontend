@@ -36,31 +36,36 @@ export function TypingIndicator({
     isMorphing?: boolean;
     onMorphComplete?: () => void;
 }) {
-    const [currentPhase, setCurrentPhase] = useState(0);
-    const [displayLabel, setDisplayLabel] = useState(label);
+    const [phaseIndex, setPhaseIndex] = useState(0);
+    const phasesKey = phases.join('|');
+
+    const hasPhases = isTyping && phases.length > 0;
+    const displayLabel = hasPhases ? (phases[phaseIndex] ?? phases[0] ?? label) : label;
 
     useEffect(() => {
-        if (!isTyping) {
-            setCurrentPhase(0);
-            setDisplayLabel(label);
+        if (!hasPhases) {
             return;
         }
 
-        if (phases.length > 0) {
-            setDisplayLabel(phases[0]);
-            const interval = setInterval(() => {
-                setCurrentPhase((prev) => {
-                    const next = (prev + 1) % phases.length;
-                    setDisplayLabel(phases[next]);
-                    return next;
-                });
-            }, phaseDuration);
+        const lastPhaseIndex = phases.length - 1;
+        const interval = setInterval(() => {
+            setPhaseIndex((prev) => {
+                if (prev >= lastPhaseIndex) {
+                    clearInterval(interval);
+                    return prev;
+                }
 
-            return () => clearInterval(interval);
-        } else {
-            setDisplayLabel(label);
-        }
-    }, [isTyping, phases, phaseDuration, label]);
+                const next = prev + 1;
+                if (next >= lastPhaseIndex) {
+                    clearInterval(interval);
+                }
+
+                return next;
+            });
+        }, phaseDuration);
+
+        return () => clearInterval(interval);
+    }, [hasPhases, phasesKey, phaseDuration, phases.length]);
 
     return (
         <AnimatePresence mode="wait">
@@ -74,12 +79,7 @@ export function TypingIndicator({
                     <div className="flex items-center gap-2">
                         <Image src="/logo.png" alt="Mocky Avatar" width={24} height={24} className="rounded-full" />
                         <div className="flex items-center gap-1 text-sm text-black/70">
-                            <motion.span
-                                key={displayLabel}
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3 }}
-                            >
+                            <motion.span key={displayLabel} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                                 {displayLabel}
                             </motion.span>
                             <TypingDots />
@@ -93,17 +93,12 @@ export function TypingIndicator({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, ease: 'easeInOut' }}
-                    onAnimationComplete={onMorphComplete}
+                    {...(onMorphComplete ? { onAnimationComplete: onMorphComplete } : {})}
                 >
                     <div className="flex items-center gap-3">
                         <Image src="/logo.png" alt="Mocky Avatar" width={32} height={32} className="rounded-full" />
                         <div className="flex items-center gap-1 text-lg text-black/70">
-                            <motion.span
-                                key={displayLabel}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3 }}
-                            >
+                            <motion.span key={displayLabel} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                                 {displayLabel}
                             </motion.span>
                             <TypingDots />

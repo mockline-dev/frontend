@@ -9,6 +9,8 @@ interface SignInRes {
   error?: string
 }
 
+const SAVED_PROMPT_KEY = 'savedPrompt'
+
 export async function signIn(data: UserData): Promise<SignInRes> {
   const { feathersId, firstName, lastName, jwt, userMeta } = data
 
@@ -43,6 +45,18 @@ export async function signIn(data: UserData): Promise<SignInRes> {
       path: '/'
     }
   )
+
+  // Check if there's a saved prompt in localStorage (via a cookie)
+  // Note: We can't access localStorage in server actions, but we can check a cookie
+  // that was set when the prompt was saved
+  const savedPromptCookie = cookiesStore.get(SAVED_PROMPT_KEY)
+
+  // Redirect to home if there's a saved prompt, otherwise go to dashboard
+  if (savedPromptCookie) {
+    // Clear the cookie
+    cookiesStore.delete(SAVED_PROMPT_KEY)
+    redirect(appRoutes.home.root)
+  }
 
   redirect(appRoutes.home.dashboard)
 }

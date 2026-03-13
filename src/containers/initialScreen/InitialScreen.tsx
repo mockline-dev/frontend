@@ -14,7 +14,7 @@ interface InitialScreenProps {
 export function InitialScreen({ currentUser }: InitialScreenProps) {
     const router = useRouter();
     const { promptValue, setPromptValue, enhancedPrompt, enhanceLoading, handleEnhancePrompt, handleSendPrompt, creationState, isPreprocessing, showMorphLoading, isMorphing } =
-        useInitialScreen();
+        useInitialScreen({ currentUser });
 
     return (
         <div>

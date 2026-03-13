@@ -7,12 +7,16 @@ import { useProjectCreation } from '@/hooks/useProjectCreation';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { appRoutes } from '@/config/appRoutes';
 
 interface UseInitialScreenOptions {
     onProjectCreated?: (projectId: string) => void;
+    currentUser?: any;
 }
 
 type PreparationPhase = 'idle' | 'enhancing' | 'inferring-meta';
+
+const SAVED_PROMPT_KEY = 'savedPrompt';
 
 export function useInitialScreen(options?: UseInitialScreenOptions) {
     const router = useRouter();
@@ -55,6 +59,19 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
                 return;
             }
 
+            // Check if user is authenticated
+            if (!options?.currentUser) {
+                // Save prompt to localStorage and redirect to auth
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem(SAVED_PROMPT_KEY, normalizedPrompt);
+                    // Also set a cookie to indicate that there's a saved prompt
+                    // This will be used by the signIn service to redirect to home
+                    document.cookie = `${SAVED_PROMPT_KEY}=true; path=/; max-age=3600`;
+                }
+                router.push(appRoutes.auth.login);
+                return;
+            }
+
             try {
                 setPreparationPhase('inferring-meta');
                 const metadata = await inferProjectMeta({ enhancedPrompt: normalizedPrompt });
@@ -74,7 +91,7 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
                 setPreparationPhase('idle');
             }
         },
-        [createProject, isCreating, preparationPhase]
+        [createProject, isCreating, preparationPhase, options?.currentUser, router]
     );
 
     useEffect(() => {
@@ -82,6 +99,20 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
             setPromptValue(enhancedPrompt);
         }
     }, [enhancedPrompt, enhanceLoading]);
+
+    // Restore saved prompt on mount if user is authenticated
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const savedPrompt = localStorage.getItem(SAVED_PROMPT_KEY);
+        if (savedPrompt && options?.currentUser) {
+            setPromptValue(savedPrompt);
+            // Clear the saved prompt after restoring it
+            localStorage.removeItem(SAVED_PROMPT_KEY);
+            // Also clear the cookie
+            document.cookie = `${SAVED_PROMPT_KEY}=; path=/; max-age=0`;
+        }
+    }, [options?.currentUser]);
 
     return {
         promptValue,

@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import Image from 'next/image';
 import { Button } from '../button';
@@ -57,7 +57,7 @@ export function AnimatedAIChat({
     const showCommandPalette = value.startsWith('/') && !value.includes(' ');
     const statusLabel = enhanceLoading ? 'Enhancing prompt' : isTyping ? 'Generating response' : 'Processing';
 
-    const typingPhases = ['Analyzing prompt...', 'Analyzing requirements...', 'Planning architecture...'];
+    const typingPhases = useMemo(() => ['Analyzing prompt...', 'Analyzing requirements...', 'Planning architecture...'], []);
 
     useEffect(() => {
         if (enhancedPrompt && !enhanceLoading) {
@@ -191,12 +191,13 @@ export function AnimatedAIChat({
             </div>
 
             <TypingIndicator
+                key={`${isTyping}-${enhanceLoading}-${statusLabel}`}
                 isTyping={isTyping || enhanceLoading}
                 label={statusLabel}
                 phases={isTyping ? typingPhases : []}
                 phaseDuration={2000}
                 isMorphing={isMorphing}
-                onMorphComplete={onMorphComplete}
+                {...(onMorphComplete ? { onMorphComplete } : {})}
             />
             <MouseFollower position={mousePosition} visible={inputFocused} />
         </div>
