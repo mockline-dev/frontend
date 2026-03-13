@@ -35,7 +35,9 @@ export function AnimatedAIChat({
     onSendClick,
     onEnhanceClick,
     enhanceLoading,
-    sending = false
+    sending = false,
+    isMorphing = false,
+    onMorphComplete
 }: {
     enhancedPrompt: string;
     value: string;
@@ -44,6 +46,8 @@ export function AnimatedAIChat({
     onEnhanceClick: (value: string) => void;
     enhanceLoading: boolean;
     sending?: boolean;
+    isMorphing?: boolean;
+    onMorphComplete?: () => void;
 }) {
     const isTyping = sending;
     const [activeSuggestion, setActiveSuggestion] = useState<number>(-1);
@@ -53,11 +57,13 @@ export function AnimatedAIChat({
     const showCommandPalette = value.startsWith('/') && !value.includes(' ');
     const statusLabel = enhanceLoading ? 'Enhancing prompt' : isTyping ? 'Generating response' : 'Processing';
 
+    const typingPhases = ['Analyzing prompt...', 'Analyzing requirements...', 'Planning architecture...'];
+
     useEffect(() => {
-        if (enhancedPrompt) {
+        if (enhancedPrompt && !enhanceLoading) {
             setValue(enhancedPrompt);
         }
-    }, [enhancedPrompt, setValue]);
+    }, [enhancedPrompt, setValue, enhanceLoading]);
 
     useEffect(() => {
         adjustHeight(!value);
@@ -184,7 +190,14 @@ export function AnimatedAIChat({
                 </motion.div>
             </div>
 
-            <TypingIndicator isTyping={isTyping || enhanceLoading} label={statusLabel} />
+            <TypingIndicator
+                isTyping={isTyping || enhanceLoading}
+                label={statusLabel}
+                phases={isTyping ? typingPhases : []}
+                phaseDuration={2000}
+                isMorphing={isMorphing}
+                onMorphComplete={onMorphComplete}
+            />
             <MouseFollower position={mousePosition} visible={inputFocused} />
         </div>
     );

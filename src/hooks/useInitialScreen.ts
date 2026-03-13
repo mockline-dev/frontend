@@ -56,18 +56,13 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
             }
 
             try {
-                setPreparationPhase('enhancing');
-                const enhanced = await enhancePrompt({ userPrompt: normalizedPrompt });
-                const enhancedText = enhanced.enhancedPrompt?.trim() || normalizedPrompt;
-                setEnhancedPrompt(enhancedText);
-
                 setPreparationPhase('inferring-meta');
-                const metadata = await inferProjectMeta({ enhancedPrompt: enhancedText });
+                const metadata = await inferProjectMeta({ enhancedPrompt: normalizedPrompt });
 
                 setPreparationPhase('idle');
                 await createProject({
                     name: metadata.name?.trim() || (normalizedPrompt.length > 60 ? `${normalizedPrompt.slice(0, 57)}...` : normalizedPrompt),
-                    description: metadata.description?.trim() || enhancedText,
+                    description: metadata.description?.trim() || normalizedPrompt,
                     framework: 'fast-api',
                     language: 'python',
                     model: defaultAiModel
@@ -83,10 +78,10 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
     );
 
     useEffect(() => {
-        if (enhancedPrompt) {
+        if (enhancedPrompt && enhanceLoading === false) {
             setPromptValue(enhancedPrompt);
         }
-    }, [enhancedPrompt]);
+    }, [enhancedPrompt, enhanceLoading]);
 
     return {
         promptValue,
@@ -99,6 +94,7 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
         isCreating,
         preparationPhase,
         isPreprocessing: preparationPhase !== 'idle',
-        showMorphLoading: isCreating && preparationPhase === 'idle'
+        showMorphLoading: isCreating && preparationPhase === 'idle',
+        isMorphing: isCreating && preparationPhase === 'idle'
     };
 }

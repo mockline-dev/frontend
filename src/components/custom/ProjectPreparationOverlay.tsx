@@ -4,6 +4,7 @@ import UniqueLoading from '@/components/ui/morph-loading';
 import { Progress } from '@/components/ui/progress';
 import { ProjectCreationState } from '@/hooks/useProjectCreation';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 interface ProjectPreparationOverlayProps {
     visible: boolean;
@@ -18,7 +19,21 @@ const toStageLabel = (stage: string | undefined): string => {
 };
 
 export default function ProjectPreparationOverlay({ visible, state }: ProjectPreparationOverlayProps) {
-    if (!visible) return null;
+    const [showLoader, setShowLoader] = useState(false);
+
+    useEffect(() => {
+        if (visible) {
+            // Delay showing the loader to allow morph animation to complete
+            const timer = setTimeout(() => {
+                setShowLoader(true);
+            }, 500);
+            return () => clearTimeout(timer);
+        } else {
+            setShowLoader(false);
+        }
+    }, [visible]);
+
+    if (!visible || !showLoader) return null;
 
     const percent = Math.max(0, Math.min(100, Math.round(state.progress?.percentage || 0)));
     const fileProgress = state.progress && state.progress.totalFiles > 0 ? `${state.progress.filesGenerated}/${state.progress.totalFiles} files` : null;

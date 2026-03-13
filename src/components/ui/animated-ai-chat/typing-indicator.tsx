@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 function TypingDots() {
     return (
@@ -20,10 +21,50 @@ function TypingDots() {
     );
 }
 
-export function TypingIndicator({ isTyping, label = 'Processing' }: { isTyping: boolean; label?: string }) {
+export function TypingIndicator({
+    isTyping,
+    label = 'Processing',
+    phases = [],
+    phaseDuration = 2000,
+    isMorphing = false,
+    onMorphComplete
+}: {
+    isTyping: boolean;
+    label?: string;
+    phases?: string[];
+    phaseDuration?: number;
+    isMorphing?: boolean;
+    onMorphComplete?: () => void;
+}) {
+    const [currentPhase, setCurrentPhase] = useState(0);
+    const [displayLabel, setDisplayLabel] = useState(label);
+
+    useEffect(() => {
+        if (!isTyping) {
+            setCurrentPhase(0);
+            setDisplayLabel(label);
+            return;
+        }
+
+        if (phases.length > 0) {
+            setDisplayLabel(phases[0]);
+            const interval = setInterval(() => {
+                setCurrentPhase((prev) => {
+                    const next = (prev + 1) % phases.length;
+                    setDisplayLabel(phases[next]);
+                    return next;
+                });
+            }, phaseDuration);
+
+            return () => clearInterval(interval);
+        } else {
+            setDisplayLabel(label);
+        }
+    }, [isTyping, phases, phaseDuration, label]);
+
     return (
-        <AnimatePresence>
-            {isTyping && (
+        <AnimatePresence mode="wait">
+            {isTyping && !isMorphing && (
                 <motion.div
                     className="fixed bottom-8 mx-auto transform backdrop-blur-2xl bg-black/3 rounded-full px-4 py-2.5 shadow-lg border border-black/8"
                     initial={{ opacity: 0, y: 20 }}
@@ -33,7 +74,38 @@ export function TypingIndicator({ isTyping, label = 'Processing' }: { isTyping: 
                     <div className="flex items-center gap-2">
                         <Image src="/logo.png" alt="Mocky Avatar" width={24} height={24} className="rounded-full" />
                         <div className="flex items-center gap-1 text-sm text-black/70">
-                            <span>{label}</span>
+                            <motion.span
+                                key={displayLabel}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                {displayLabel}
+                            </motion.span>
+                            <TypingDots />
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+            {isMorphing && (
+                <motion.div
+                    className="fixed inset-0 bg-white/95 backdrop-blur-xl flex items-center justify-center z-50"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }}
+                    onAnimationComplete={onMorphComplete}
+                >
+                    <div className="flex items-center gap-3">
+                        <Image src="/logo.png" alt="Mocky Avatar" width={32} height={32} className="rounded-full" />
+                        <div className="flex items-center gap-1 text-lg text-black/70">
+                            <motion.span
+                                key={displayLabel}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                {displayLabel}
+                            </motion.span>
                             <TypingDots />
                         </div>
                     </div>

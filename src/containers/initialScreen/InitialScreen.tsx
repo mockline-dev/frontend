@@ -13,7 +13,7 @@ interface InitialScreenProps {
 
 export function InitialScreen({ currentUser }: InitialScreenProps) {
     const router = useRouter();
-    const { promptValue, setPromptValue, enhancedPrompt, enhanceLoading, handleEnhancePrompt, handleSendPrompt, creationState, isPreprocessing, showMorphLoading } =
+    const { promptValue, setPromptValue, enhancedPrompt, enhanceLoading, handleEnhancePrompt, handleSendPrompt, creationState, isPreprocessing, showMorphLoading, isMorphing } =
         useInitialScreen();
 
     return (
@@ -27,6 +27,7 @@ export function InitialScreen({ currentUser }: InitialScreenProps) {
                 onEnhanceClick={handleEnhancePrompt}
                 enhanceLoading={enhanceLoading}
                 sending={isPreprocessing}
+                isMorphing={isMorphing}
             />
             <ProjectPreparationOverlay visible={showMorphLoading} state={creationState} />
         </div>

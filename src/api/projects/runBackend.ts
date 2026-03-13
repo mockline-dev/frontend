@@ -290,17 +290,75 @@ export const runBackend = async ({ projectId, onLog }: RunBackendParams): Promis
                     .filter((line: string | null): line is string => line !== null && line.length > 0)
                     .join('\n');
 
-                // Write cleaned requirements back
+                // Ensure email-validator is included (required for Pydantic EmailStr)
+                // This must be done BEFORE writing to requirements.txt
+                if (!requirementsContent.toLowerCase().includes('email-validator')) {
+                    pushLog('info', 'Adding email-validator to requirements.txt (required for Pydantic EmailStr)', 'pip');
+                    requirementsContent = requirementsContent.trim() + '\nemail-validator';
+                }
+
+                // Write cleaned requirements back with email-validator included
                 await writeFile(requirementsPath, requirementsContent, 'utf-8');
-                pushLog('info', 'Cleaned requirements.txt - removed version constraints', 'pip');
+                pushLog('info', 'Cleaned requirements.txt - removed version constraints and ensured email-validator is present', 'pip');
 
                 pushLog('info', 'Installing dependencies from requirements.txt...', 'pip');
                 await runStreamingCommand('pip', ['install', '-r', 'requirements.txt', '--disable-pip-version-check'], tempDir, 'pip');
                 pushLog('success', 'Dependencies installed successfully', 'pip');
+
+                // Validate that email-validator is actually installed
+                pushLog('info', 'Validating email-validator installation...', 'pip');
+                try {
+                    await runStreamingCommand('python', ['-c', 'import email_validator; print(f"email-validator version: {email_validator.__version__}")'], tempDir, 'pip', 30000);
+                    pushLog('success', 'email-validator is installed and working correctly', 'pip');
+                } catch (validationError) {
+                    pushLog('warning', 'email-validator validation failed, attempting to install it separately...', 'pip');
+                    try {
+                        await runStreamingCommand('pip', ['install', 'email-validator', '--disable-pip-version-check'], tempDir, 'pip', 60000);
+                        pushLog('success', 'email-validator installed successfully via separate installation', 'pip');
+                    } catch (separateInstallError) {
+                        const error = separateInstallError as Error;
+                        pushLog('error', `Failed to install email-validator: ${error.message}`, 'pip');
+                        await cleanupTempDir(tempDir);
+                        return {
+                            success: false,
+                            error: 'Failed to install email-validator dependency',
+                            data: {
+                                success: false,
+                                message: 'email-validator is required for Pydantic EmailStr fields but could not be installed',
+                                failureType: 'import_error',
+                                details: error.message,
+                                logs,
+                                validation
+                            }
+                        };
+                    }
+                }
             } else {
                 pushLog('info', 'Installing default Python dependencies...', 'pip');
-                await runStreamingCommand('pip', ['install', 'fastapi', 'uvicorn[standard]', 'python-multipart', '--disable-pip-version-check'], tempDir, 'pip');
+                await runStreamingCommand('pip', ['install', 'fastapi', 'uvicorn[standard]', 'python-multipart', 'email-validator', '--disable-pip-version-check'], tempDir, 'pip');
                 pushLog('success', 'Basic dependencies installed', 'pip');
+
+                // Validate that email-validator is actually installed
+                pushLog('info', 'Validating email-validator installation...', 'pip');
+                try {
+                    await runStreamingCommand('python', ['-c', 'import email_validator; print(f"email-validator version: {email_validator.__version__}")'], tempDir, 'pip', 30000);
+                    pushLog('success', 'email-validator is installed and working correctly', 'pip');
+                } catch (validationError) {
+                    pushLog('error', 'email-validator validation failed after default installation', 'pip');
+                    await cleanupTempDir(tempDir);
+                    return {
+                        success: false,
+                        error: 'Failed to install email-validator dependency',
+                        data: {
+                            success: false,
+                            message: 'email-validator is required for Pydantic EmailStr fields but could not be installed',
+                            failureType: 'import_error',
+                            details: 'Default installation did not include email-validator',
+                            logs,
+                            validation
+                        }
+                    };
+                }
             }
         } catch (error: unknown) {
             const execError = error as { message?: string };
@@ -451,14 +509,35 @@ export const runBackend = async ({ projectId, onLog }: RunBackendParams): Promis
                         ? 'startup_error'
                         : 'timeout';
 
+            // Provide more specific error messages for common issues
+            let errorMessage = 'Failed to start FastAPI server';
+            let errorDetails = uvicornErrors.length > 0 ? uvicornErrors.join('\n') : 'Server health check failed before readiness';
+
+            // Check for email-validator specific errors
+            if (combinedError.includes('email-validator') || combinedError.includes('email_validator')) {
+                errorMessage = 'Failed to start server: email-validator dependency issue';
+                errorDetails = `The email-validator package is required for Pydantic EmailStr fields but is not properly installed.\n\nError details:\n${uvicornErrors.join('\n')}\n\nPlease ensure email-validator is included in requirements.txt and installed successfully.`;
+                pushLog('error', 'email-validator dependency issue detected during server startup', 'uvicorn');
+            } else if (combinedError.includes('importerror') || combinedError.includes('modulenotfounderror')) {
+                const missingModule = combinedError.match(/importerror|modulenotfounderror.*?:\s*['"]?([^'"\s]+)/i);
+                if (missingModule && missingModule[1]) {
+                    errorMessage = `Failed to start server: missing dependency "${missingModule[1]}"`;
+                    errorDetails = `The required Python module "${missingModule[1]}" is not installed.\n\nError details:\n${uvicornErrors.join('\n')}\n\nPlease ensure all required dependencies are installed from requirements.txt.`;
+                    pushLog('error', `Missing dependency detected: ${missingModule[1]}`, 'uvicorn');
+                }
+            } else if (combinedError.includes('address already in use') || combinedError.includes('port')) {
+                errorMessage = 'Failed to start server: port conflict';
+                pushLog('error', 'Port conflict detected during server startup', 'uvicorn');
+            }
+
             return {
                 success: false,
-                error: 'Failed to start FastAPI server',
+                error: errorMessage,
                 data: {
                     success: false,
-                    message: 'Failed to start server',
+                    message: errorMessage,
                     failureType,
-                    details: uvicornErrors.length > 0 ? uvicornErrors.join('\n') : 'Server health check failed before readiness',
+                    details: errorDetails,
                     logs,
                     validation,
                     files: {
