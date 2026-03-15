@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CreateProjectData } from '@/types/feathers';
+import type { Project } from '@/types/feathers';
 
 /**
  * Props for ProjectCreationForm component.
@@ -21,6 +22,13 @@ export interface ProjectCreationFormProps {
     };
     /** Whether the form is currently submitting */
     isSubmitting: boolean;
+    /** Validation errors */
+    errors?: {
+        name?: string;
+        description?: string;
+        framework?: string;
+        language?: string;
+    };
     /** Callback invoked when form values change */
     onChange: (values: ProjectCreationFormProps['values']) => void;
     /** Callback invoked when form is submitted */
@@ -42,22 +50,66 @@ export interface ProjectCreationFormProps {
  * <ProjectCreationForm
  *   values={formValues}
  *   isSubmitting={isCreating}
+ *   errors={validationErrors}
  *   onChange={setFormValues}
  *   onSubmit={handleCreateProject}
  *   onCancel={handleCancel}
  * />
  * ```
  */
-export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, onCancel }: ProjectCreationFormProps) {
+export function ProjectCreationForm({
+    values,
+    isSubmitting,
+    errors,
+    onChange,
+    onSubmit,
+    onCancel
+}: ProjectCreationFormProps) {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        const validFrameworks: Project['framework'][] = [
+            'fast-api',
+            'feathers',
+            'express',
+            'go-gin',
+            'spring-boot',
+            'actix',
+            'nestjs'
+        ];
+
+        const validLanguages: Project['language'][] = [
+            'python',
+            'typescript',
+            'go',
+            'java',
+            'rust'
+        ];
+
+        const framework = values.framework as Project['framework'];
+        const language = values.language as Project['language'];
+
+        if (!validFrameworks.includes(framework)) {
+            throw new Error(`Invalid framework: ${framework}`);
+        }
+
+        if (!validLanguages.includes(language)) {
+            throw new Error(`Invalid language: ${language}`);
+        }
+
         onSubmit({
             name: values.name,
             description: values.description,
-            framework: values.framework as CreateProjectData['framework'],
-            language: values.language as CreateProjectData['language']
+            framework,
+            language
         });
     };
+
+    const isFormValid =
+        values.name.trim().length > 0 &&
+        values.description.trim().length >= 10 &&
+        values.framework &&
+        values.language;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -73,7 +125,14 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                     disabled={isSubmitting}
                     required
                     className="w-full"
+                    aria-invalid={!!errors?.name}
+                    aria-describedby={errors?.name ? 'name-error' : undefined}
                 />
+                {errors?.name && (
+                    <p id="name-error" className="text-sm text-red-500">
+                        {errors.name}
+                    </p>
+                )}
             </div>
 
             {/* Project Description */}
@@ -88,7 +147,14 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                     required
                     rows={4}
                     className="w-full resize-none"
+                    aria-invalid={!!errors?.description}
+                    aria-describedby={errors?.description ? 'description-error' : undefined}
                 />
+                {errors?.description && (
+                    <p id="description-error" className="text-sm text-red-500">
+                        {errors.description}
+                    </p>
+                )}
             </div>
 
             {/* Stack Selection */}
@@ -98,12 +164,24 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 onStackSelect={(framework, language) => onChange({ ...values, framework, language })}
                 disabled={isSubmitting}
             />
+            {errors?.framework && (
+                <p className="text-sm text-red-500">{errors.framework}</p>
+            )}
+            {errors?.language && (
+                <p className="text-sm text-red-500">{errors.language}</p>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-3">
                 {/* Cancel Button */}
                 {onCancel && (
-                    <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="flex-1">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onCancel}
+                        disabled={isSubmitting}
+                        className="flex-1"
+                    >
                         Cancel
                     </Button>
                 )}
@@ -111,7 +189,7 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 {/* Submit Button */}
                 <Button
                     type="submit"
-                    disabled={isSubmitting || !values.name.trim() || !values.description.trim() || !values.framework || !values.language}
+                    disabled={isSubmitting || !isFormValid}
                     className="flex-1"
                 >
                     {isSubmitting ? 'Creating...' : 'Create Project'}
