@@ -4,11 +4,8 @@ import { createFeathersServerClient } from '@/services/feathersServer';
 import { apiServices } from '../services';
 
 export interface GenerateAIResponseParams {
+    projectId: string;
     prompt: string;
-    conversationId?: string;
-    projectId?: string;
-    modelId?: string;
-    [key: string]: unknown;
 }
 
 export type GenerateAIResponseResponse = { success: true; data: any } | { success: false; error: string };

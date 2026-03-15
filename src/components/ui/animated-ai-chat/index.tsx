@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { StackSelector } from '@/components/custom/StackSelector';
 import Image from 'next/image';
 import { Button } from '../button';
 import { Spinner } from '../spinner';
@@ -37,7 +38,12 @@ export function AnimatedAIChat({
     enhanceLoading,
     sending = false,
     isMorphing = false,
-    onMorphComplete
+    onMorphComplete,
+    className,
+    selectedFramework,
+    selectedLanguage,
+    onStackSelect,
+    stackSelectorDisabled = false
 }: {
     enhancedPrompt: string;
     value: string;
@@ -48,6 +54,11 @@ export function AnimatedAIChat({
     sending?: boolean;
     isMorphing?: boolean;
     onMorphComplete?: () => void;
+    className?: string;
+    selectedFramework?: string;
+    selectedLanguage?: string;
+    onStackSelect?: (framework: string, language: string) => void;
+    stackSelectorDisabled?: boolean;
 }) {
     const isTyping = sending;
     const [activeSuggestion, setActiveSuggestion] = useState<number>(-1);
@@ -112,7 +123,12 @@ export function AnimatedAIChat({
     };
 
     return (
-        <div className="h-[calc(100vh-80px)] flex flex-col w-full items-center justify-center bg-transparent text-black p-4 sm:p-6 relative overflow-hidden">
+        <div
+            className={cn(
+                'flex flex-col w-full items-center justify-center bg-transparent text-black p-4 sm:p-6 relative overflow-hidden',
+                className || 'h-[calc(100vh-80px)]'
+            )}
+        >
             <BackgroundOrbs />
             <div className="w-full max-w-3xl mx-auto relative">
                 <motion.div
@@ -172,7 +188,18 @@ export function AnimatedAIChat({
                             />
                         </div>
 
-                        <div className="p-4 sm:p-5 border-black/5 flex items-center justify-end gap-3 sm:gap-4">
+                        <div className="p-4 sm:p-5 border-black/5 flex items-center gap-3 sm:gap-4">
+                            {onStackSelect && (
+                                <div className="min-w-0 flex-1 sm:flex-none sm:w-70">
+                                    <StackSelector
+                                        compact
+                                        selectedFramework={selectedFramework ?? ''}
+                                        selectedLanguage={selectedLanguage ?? ''}
+                                        onStackSelect={onStackSelect}
+                                        disabled={stackSelectorDisabled}
+                                    />
+                                </div>
+                            )}
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -182,7 +209,9 @@ export function AnimatedAIChat({
                             >
                                 {enhanceLoading ? <Spinner /> : <Image src="/stick.png" alt="Enhance" width={20} height={20} className="w-5 h-5 text-black/50" />}
                             </Button>
-                            <SendButton isTyping={isTyping} onClick={handleSendMessage} disabled={enhanceLoading || isTyping || !value.trim()} />
+                            <div className="ml-auto">
+                                <SendButton isTyping={isTyping} onClick={handleSendMessage} disabled={enhanceLoading || isTyping || !value.trim()} />
+                            </div>
                         </div>
                     </motion.div>
 

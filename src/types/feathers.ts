@@ -16,6 +16,10 @@ export interface GenerationProgress {
     startedAt?: number;
     completedAt?: number;
     errorMessage?: string;
+    warnings?: string[];
+    errorType?: string;
+    retryAttempts?: number;
+    validationResults?: { passCount: number; failCount: number; failedFiles: string[] };
 }
 
 export interface Project {
@@ -23,13 +27,16 @@ export interface Project {
     userId: string;
     name: string;
     description: string;
-    framework: 'fast-api' | 'feathers';
-    language: 'python' | 'typescript';
+    framework: 'fast-api' | 'feathers' | 'express' | 'go-gin' | 'spring-boot' | 'actix' | 'nestjs';
+    language: 'python' | 'typescript' | 'go' | 'java' | 'rust';
     model: string;
     status: 'initializing' | 'generating' | 'validating' | 'ready' | 'error';
     errorMessage?: string;
     jobId?: string;
     generationProgress?: GenerationProgress;
+    errorType?: string;
+    retryAttempts?: number;
+    architectureId?: string;
     createdAt: number;
     updatedAt: number;
     deletedAt?: number;
@@ -38,8 +45,8 @@ export interface Project {
 export interface CreateProjectData {
     name: string;
     description: string;
-    framework: 'fast-api' | 'feathers';
-    language: 'python' | 'typescript';
+    framework: Project['framework'];
+    language: Project['language'];
     model?: string;
 }
 
@@ -113,6 +120,11 @@ export interface CreateSnapshotData {
     projectId: string;
     label: string;
     trigger: 'auto-generation' | 'auto-ai-edit' | 'manual';
+    version: number;
+    r2Prefix?: string;
+    files?: SnapshotFile[];
+    totalSize?: number;
+    fileCount?: number;
 }
 
 export interface RollbackResult {
@@ -180,7 +192,7 @@ export interface ArchModel {
 export interface ArchRelation {
     from: string;
     to: string;
-    type: 'one-to-many' | 'many-to-many' | 'one-to-one';
+    type: 'one-to-many' | 'many-to-many' | 'one-to-one' | 'many-to-one';
 }
 
 export interface ArchRoute {
@@ -218,12 +230,12 @@ export interface AIStreamChunk {
 }
 
 export interface AIFileUpdate {
-    fileId?: string;
     name: string;
     action: 'create' | 'modify' | 'delete';
     description: string;
     content?: string;
     diff?: string;
+    language?: string;
 }
 
 export interface AIStreamFileUpdates {
@@ -274,9 +286,9 @@ export interface AIStreamContext {
 export interface StreamAIRequest {
     projectId: string;
     message: string;
+    model?: string;
     conversationHistory?: ConversationHistoryItem[];
     context?: AIStreamContext;
-    model?: string;
 }
 
 export interface StreamAIResponse {

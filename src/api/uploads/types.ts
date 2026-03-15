@@ -1,29 +1,19 @@
 export interface Upload {
-    uploadId?: string;
-    key: string;
-    success?: boolean;
+    _id: string;
+    uri: string;
+    size: number;
+    contentType: string;
+    createdAt: number;
+    updatedAt: number;
 }
 
 export interface UploadCreateData {
+    uri?: string;
     key: string;
     content: string;
     contentType: string;
-    projectId?: string;
+    projectId: string;
 }
 
-export interface UploadUpdateData {
-    partNumber: number;
-    uploadId: string;
-    key: string;
-    content: Buffer;
-}
-
-export interface UploadCompleteData {
-    uploadId: string;
-    key: string;
-    parts: {
-        ETag: string;
-        PartNumber: number;
-    }[];
-    fileType: string;
-}
+export type UploadUpdateData = Partial<UploadCreateData>;
+export type UploadCompleteData = UploadCreateData;

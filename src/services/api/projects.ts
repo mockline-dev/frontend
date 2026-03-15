@@ -5,30 +5,45 @@ import { fetchProjects } from '@/api/projects/fetchProjects';
 import { updateProject } from '@/api/projects/updateProject';
 import feathersClient from '@/services/featherClient';
 
+export interface GenerationProgress {
+    percentage: number;
+    currentStage: string;
+    currentFile?: string;
+    filesGenerated: number;
+    totalFiles: number;
+    startedAt?: number;
+    completedAt?: number;
+    errorMessage?: string;
+    warnings?: string[];
+    errorType?: string;
+    retryAttempts?: number;
+    validationResults?: { passCount: number; failCount: number; failedFiles: string[] };
+}
+
 export interface Project {
     _id: string;
     userId: string;
     name: string;
     description: string;
-    framework: string;
-    language: string;
+    framework: 'fast-api' | 'feathers' | 'express' | 'go-gin' | 'spring-boot' | 'actix' | 'nestjs';
+    language: 'python' | 'typescript' | 'go' | 'java' | 'rust';
     model: string;
-    status: 'initializing' | 'generating' | 'ready' | 'error';
+    status: 'initializing' | 'generating' | 'validating' | 'ready' | 'error';
     errorMessage?: string;
     createdAt: number;
     updatedAt: number;
     // Progress tracking fields
     filesGenerated?: number;
     totalFiles?: number;
-    generationProgress?: number;
+    generationProgress?: GenerationProgress;
     currentStage?: string;
 }
 
 export interface CreateProjectData {
     name: string;
     description: string;
-    framework: string;
-    language: string;
+    framework: 'fast-api' | 'feathers' | 'express' | 'go-gin' | 'spring-boot' | 'actix' | 'nestjs';
+    language: 'python' | 'typescript' | 'go' | 'java' | 'rust';
     model: string;
     [key: string]: unknown;
 }
@@ -60,9 +75,9 @@ export const projectsService = {
 
         return {
             data: result.data,
-            total: result.total,
-            limit: result.limit,
-            skip: result.skip
+            ...(result.total !== undefined && { total: result.total }),
+            ...(result.limit !== undefined && { limit: result.limit }),
+            ...(result.skip !== undefined && { skip: result.skip })
         };
     },
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { StackSelector } from '@/components/custom/StackSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +16,8 @@ export interface ProjectCreationFormProps {
     values: {
         name: string;
         description: string;
-        framework: 'fast-api' | 'feathers';
-        language: 'python' | 'typescript';
+        framework: string;
+        language: string;
     };
     /** Whether the form is currently submitting */
     isSubmitting: boolean;
@@ -34,8 +35,7 @@ export interface ProjectCreationFormProps {
  * This component provides a simple form for creating new projects with:
  * - Project name input
  * - Project description textarea
- * - Framework selection (FastAPI or Feathers.js)
- * - Language selection (Python or TypeScript)
+ * - Stack/framework selection using StackSelector component
  *
  * @example
  * ```tsx
@@ -54,8 +54,8 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
         onSubmit({
             name: values.name,
             description: values.description,
-            framework: values.framework,
-            language: values.language
+            framework: values.framework as CreateProjectData['framework'],
+            language: values.language as CreateProjectData['language']
         });
     };
 
@@ -91,55 +91,13 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 />
             </div>
 
-            {/* Framework Selection */}
-            <div className="space-y-2">
-                <Label>Framework</Label>
-                <div className="grid grid-cols-2 gap-4">
-                    <Button
-                        type="button"
-                        variant={values.framework === 'fast-api' ? 'default' : 'outline'}
-                        onClick={() => onChange({ ...values, framework: 'fast-api' })}
-                        disabled={isSubmitting}
-                        className="w-full"
-                    >
-                        FastAPI
-                    </Button>
-                    <Button
-                        type="button"
-                        variant={values.framework === 'feathers' ? 'default' : 'outline'}
-                        onClick={() => onChange({ ...values, framework: 'feathers' })}
-                        disabled={isSubmitting}
-                        className="w-full"
-                    >
-                        Feathers.js
-                    </Button>
-                </div>
-            </div>
-
-            {/* Language Selection */}
-            <div className="space-y-2">
-                <Label>Language</Label>
-                <div className="grid grid-cols-2 gap-4">
-                    <Button
-                        type="button"
-                        variant={values.language === 'python' ? 'default' : 'outline'}
-                        onClick={() => onChange({ ...values, language: 'python' })}
-                        disabled={isSubmitting}
-                        className="w-full"
-                    >
-                        Python
-                    </Button>
-                    <Button
-                        type="button"
-                        variant={values.language === 'typescript' ? 'default' : 'outline'}
-                        onClick={() => onChange({ ...values, language: 'typescript' })}
-                        disabled={isSubmitting}
-                        className="w-full"
-                    >
-                        TypeScript
-                    </Button>
-                </div>
-            </div>
+            {/* Stack Selection */}
+            <StackSelector
+                selectedFramework={values.framework}
+                selectedLanguage={values.language}
+                onStackSelect={(framework, language) => onChange({ ...values, framework, language })}
+                disabled={isSubmitting}
+            />
 
             {/* Action Buttons */}
             <div className="flex gap-3">
@@ -151,7 +109,11 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 )}
 
                 {/* Submit Button */}
-                <Button type="submit" disabled={isSubmitting || !values.name.trim() || !values.description.trim()} className="flex-1">
+                <Button
+                    type="submit"
+                    disabled={isSubmitting || !values.name.trim() || !values.description.trim() || !values.framework || !values.language}
+                    className="flex-1"
+                >
                     {isSubmitting ? 'Creating...' : 'Create Project'}
                 </Button>
             </div>

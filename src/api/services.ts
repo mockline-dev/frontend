@@ -5,11 +5,10 @@ export const apiServices = {
     files: 'files' as const,
     snapshots: 'snapshots' as const,
     uploads: 'uploads' as const,
-    media: 'media' as const,
     messages: 'messages' as const,
 
     // AI services
-    aiModels: 'ai-models' as const,
+    aiModels: 'models' as const,
     aiService: 'ai-service' as const,
     aiStream: 'ai-stream' as const,
     validatePrompt: 'validate-prompt' as const,
@@ -21,5 +20,8 @@ export const apiServices = {
     inferProjectMeta: 'infer-project-meta' as const,
 
     // Architecture service
-    architecture: 'architecture' as const
+    architecture: 'architecture' as const,
+
+    // Stack service
+    stacks: 'stacks' as const
 } as const;

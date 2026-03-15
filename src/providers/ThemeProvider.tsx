@@ -10,6 +10,4 @@ export function ThemeProvider({
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }
 
-export function useTheme() {
-  return React.useContext(ThemeContext)
-}
+export { useTheme } from "next-themes"

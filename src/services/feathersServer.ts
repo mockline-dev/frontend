@@ -13,17 +13,19 @@ export const createFeathersServerClient = async () => {
         uploads: RestService;
         media: RestService;
         messages: RestService;
-        'ai-models': RestService;
+        models: RestService;
+        architecture: RestService;
         'ai-service': RestService;
         'ai-stream': RestService;
         'file-stream': RestService;
         'enhance-prompt': RestService;
         'infer-project-meta': RestService;
         snapshots: RestService;
+        stacks: RestService;
     };
 
     const app = feathers<ServiceTypes>();
-    const restClient = rest(process.env.NEXT_PUBLIC_SOCKET_URL).fetch(fetch);
+    const restClient = rest(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3030').fetch(fetch);
     const jwt = (await cookies()).get('jwt')?.value;
 
     app.configure(restClient);

@@ -5,10 +5,15 @@ import { apiServices } from '../services';
 
 export interface CreateAIModelParams {
     name: string;
-    provider?: string;
-    model?: string;
-    apiKey?: string;
-    [key: string]: unknown;
+    provider: string;
+    model: string;
+    baseUrl?: string;
+    isDefault?: boolean;
+    capabilities?: {
+        chat: boolean;
+        embed: boolean;
+        tools: boolean;
+    };
 }
 
 export type CreateAIModelResponse = { success: true; data: any } | { success: false; error: string };

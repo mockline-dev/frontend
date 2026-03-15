@@ -70,11 +70,16 @@ export const useLogin = (): {
                     strategy: 'firebase',
                     accessToken: idToken
                 });
+                const feathersId = authResponse?.user?._id || authResponse?.user?.feathersId || authResponse?.user?.firebaseUid;
+
+                if (!feathersId) {
+                    throw new Error('Missing user identifier from authentication response');
+                }
 
                 await signIn({
                     firstName: authResponse.user.firstName,
                     lastName: authResponse.user.lastName,
-                    feathersId: authResponse.user._id,
+                    feathersId,
                     jwt: authResponse.accessToken,
                     userMeta: userCredential.user.providerData
                 });
@@ -110,9 +115,14 @@ export const useLogin = (): {
                     lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || ''
                 }
             });
+            const feathersId = fres?.user?._id || fres?.user?.feathersId || fres?.user?.firebaseUid;
+
+            if (!feathersId) {
+                throw new Error('Missing user identifier from authentication response');
+            }
 
             await signIn({
-                feathersId: fres.user._id,
+                feathersId,
                 firstName: userCredential.user.displayName?.split(' ')[0] || '',
                 lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || '',
                 userMeta: userCredential.user.providerData,
