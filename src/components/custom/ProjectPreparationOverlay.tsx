@@ -57,12 +57,8 @@ const formatStageLabel = (stage: string | undefined): string => {
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
-const formatTimeRemaining = (milliseconds: number): string => {
-    const seconds = Math.ceil(milliseconds / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.ceil(seconds / 60);
-    return `${minutes}m`;
-};
+export default function ProjectPreparationOverlay({ visible, state }: ProjectPreparationOverlayProps) {
+    const [showLoader, setShowLoader] = useState(true);
 
 const calculateEstimatedTime = (progress: GenerationProgress | null, startTime: number | undefined): number | null => {
     if (!progress || !startTime || progress.percentage === 0) {
@@ -153,33 +149,16 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
     if (!visible || !showLoader) return null;
 
     return (
-        <AnimatePresence mode="wait">
-            <motion.div
-                className="fixed inset-0 z-50 bg-white/95 backdrop-blur-xl flex items-center justify-center p-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-            >
-                <motion.div
-                    className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/90 shadow-2xl p-8 text-center"
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                    {/* Cancel Button */}
-                    {onCancel && !isComplete && !isError && (
-                        <motion.button
-                            onClick={handleCancel}
-                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 transition-colors"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            aria-label="Cancel project creation"
-                        >
-                            <X className="w-5 h-5 text-black/60" />
-                        </motion.button>
-                    )}
+        <motion.div
+            className="fixed inset-0 z-50 bg-white/95 backdrop-blur-xl flex items-center justify-center p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+        >
+            <div className="w-full max-w-md rounded-2xl border border-black/10 bg-white/80 shadow-2xl p-8 text-center space-y-5">
+                <div className="flex justify-center h-24">
+                    <UniqueLoading variant="morph" size="lg" className="w-full h-full" />
+                </div>
 
                     {/* Loading Animation */}
                     <motion.div
