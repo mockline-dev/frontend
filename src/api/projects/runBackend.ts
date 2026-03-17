@@ -392,8 +392,8 @@ export const runBackend = async ({ projectId, onLog }: RunBackendParams): Promis
                 try {
                     await verifyEmailValidatorWithPython(projectRootPath, venvPython);
                     pushLog('success', 'email-validator is installed and working correctly', 'pip');
-                } catch {
-                    pushLog('warning', 'email-validator validation failed, attempting to install it separately...', 'pip');
+                } catch (validationError: unknown) {
+                    pushLog('warning', `email-validator validation failed: ${validationError instanceof Error ? validationError.message : String(validationError)}, attempting to install it separately...`, 'pip');
                     try {
                         await installEmailValidatorWithPythonPip(projectRootPath, venvPython);
                         await verifyEmailValidatorWithPython(projectRootPath, venvPython);
@@ -431,17 +431,13 @@ export const runBackend = async ({ projectId, onLog }: RunBackendParams): Promis
                 try {
                     await verifyEmailValidatorWithPython(projectRootPath, venvPython);
                     pushLog('success', 'email-validator is installed and working correctly', 'pip');
-                } catch {
-                    pushLog('warning', 'email-validator validation failed after default installation, retrying with python -m pip...', 'pip');
-                    try {
-                        await installEmailValidatorWithPythonPip(projectRootPath, venvPython);
-                        await verifyEmailValidatorWithPython(projectRootPath, venvPython);
-                        pushLog('success', 'email-validator installed successfully via python -m pip fallback', 'pip');
-                    } catch (fallbackInstallError) {
-                        const error = fallbackInstallError as Error;
-                        pushLog('error', `Failed to install email-validator: ${error.message}`, 'pip');
-                        await cleanupTempDir(tempDir);
-                        return {
+                } catch (validationError: unknown) {
+                    pushLog('error', `email-validator validation failed after default installation: ${validationError instanceof Error ? validationError.message : String(validationError)}`, 'pip');
+                    await cleanupTempDir(tempDir);
+                    return {
+                        success: false,
+                        error: 'Failed to install email-validator dependency',
+                        data: {
                             success: false,
                             error: 'Failed to install email-validator dependency',
                             data: {
@@ -1082,21 +1078,6 @@ async function fixModelFileImports(tempDir: string, filesList: string[]): Promis
         try {
             const content = await readFile(filePath, 'utf-8');
 
-            const usesSqlalchemyColumns = /\bColumn\s*\(/.test(content) && /\bsqlalchemy\b|from\s+sqlalchemy\s+import/.test(content);
-            if (!usesSqlalchemyColumns) {
-                continue;
-            }
-
-            let updatedContent = content;
-
-            // Fix invalid SQLAlchemy column type usage: Column(EmailStr, ...) -> Column(String, ...)
-            updatedContent = updatedContent.replace(/Column\(\s*EmailStr\b/g, 'Column(String');
-
-            // Fix forward reference NameError in SQLAlchemy relationships:
-            // foreign_keys=[Follow.follower_id] -> foreign_keys="[Follow.follower_id]"
-            // This allows SQLAlchemy to resolve it lazily instead of requiring Follow to be defined at import time.
-            updatedContent = updatedContent.replace(/foreign_keys\s*=\s*\[\s*([A-Z][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)\s*\]/g, 'foreign_keys="[$1]"');
-
             // Check if the file uses Base class
             const hasBaseClass = /\bclass\s+\w+\s*\(\s*Base\s*\)/.test(updatedContent);
 
@@ -1145,9 +1126,9 @@ async function fixModelFileImports(tempDir: string, filesList: string[]): Promis
                 importsToAdd.push('from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey');
             } else {
                 // Add missing Column types if sqlalchemy is imported
-                const existingImports = updatedContent.match(/from\s+sqlalchemy\s+import\s+([^\n]+)/);
-                if (existingImports) {
-                    const importedTypes = (existingImports[1] || '').split(',').map((s) => s.trim());
+                const existingImports = content.match(/from\s+sqlalchemy\s+import\s+([^\n]+)/);
+                if (existingImports && existingImports[1]) {
+                    const importedTypes = existingImports[1].split(',').map((s) => s.trim());
                     const requiredTypes = ['Column', 'Integer', 'String', 'Boolean', 'DateTime', 'ForeignKey'];
                     const missingTypes = requiredTypes.filter((type) => !importedTypes.includes(type));
                     if (missingTypes.length > 0) {
@@ -1182,7 +1163,7 @@ async function fixModelFileImports(tempDir: string, filesList: string[]): Promis
 
             // Find the last import statement
             for (let i = 0; i < lines.length; i++) {
-                const trimmedLine = (lines[i] || '').trim();
+                const trimmedLine = lines[i]?.trim() || '';
                 if (trimmedLine.startsWith('from ') || trimmedLine.startsWith('import ')) {
                     insertIndex = i + 1;
                 } else if (trimmedLine && !trimmedLine.startsWith('#') && insertIndex > 0) {
