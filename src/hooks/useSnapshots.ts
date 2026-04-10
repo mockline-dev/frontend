@@ -10,14 +10,12 @@ import { useCallback, useState } from 'react';
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface UseSnapshotsReturn {
-    // State
     snapshots: Snapshot[];
     loading: boolean;
     error: string | null;
     currentSnapshot: Snapshot | null;
     isRollingBack: boolean;
 
-    // Methods
     loadSnapshots: (projectId: string, query?: SnapshotQuery) => Promise<void>;
     loadSnapshot: (snapshotId: string) => Promise<void>;
     createSnapshot: (data: CreateSnapshotData) => Promise<Snapshot>;
@@ -35,10 +33,8 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
     const [currentSnapshot, setCurrentSnapshot] = useState<Snapshot | null>(null);
     const [isRollingBack, setIsRollingBack] = useState(false);
 
-    // Check if we're in a browser environment
     const isBrowser = typeof window !== 'undefined';
 
-    // Load snapshots for a project
     const loadSnapshots = useCallback(
         async (projectId: string, query?: SnapshotQuery) => {
             if (!isBrowser) return;
@@ -88,7 +84,6 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
         [isBrowser]
     );
 
-    // Create a new snapshot
     const createSnapshot = useCallback(
         async (data: CreateSnapshotData): Promise<Snapshot> => {
             if (!isBrowser) {
@@ -114,7 +109,6 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
         [isBrowser]
     );
 
-    // Rollback to a snapshot
     const rollbackToSnapshot = useCallback(
         async (snapshotId: string): Promise<RollbackResult> => {
             if (!isBrowser) {
@@ -139,7 +133,6 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
         [isBrowser]
     );
 
-    // Delete a snapshot
     const deleteSnapshot = useCallback(
         async (snapshotId: string): Promise<void> => {
             if (!isBrowser) {
@@ -165,7 +158,6 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
         [isBrowser]
     );
 
-    // Refresh snapshots for a project
     const refresh = useCallback(
         async (projectId: string) => {
             await loadSnapshots(projectId);
@@ -188,14 +180,12 @@ export function useSnapshots(initialSnapshots: Snapshot[] = []): UseSnapshotsRet
     });
 
     return {
-        // State
         snapshots,
         loading,
         error,
         currentSnapshot,
         isRollingBack,
 
-        // Methods
         loadSnapshots,
         loadSnapshot,
         createSnapshot,

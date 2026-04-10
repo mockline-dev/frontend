@@ -11,13 +11,11 @@ import { useCallback, useState } from 'react';
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface UseProjectsReturn {
-    // State
     projects: Project[];
     loading: boolean;
     error: string | null;
     currentProject: Project | null;
 
-    // Methods
     loadProjects: (query?: ProjectQuery) => Promise<void>;
     loadProject: (projectId: string) => Promise<void>;
     createProject: (data: CreateProjectData) => Promise<Project>;
@@ -37,7 +35,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
     const isBrowser = typeof window !== 'undefined';
     const disableRealtime = opts?.disableRealtimeListeners ?? false;
 
-    // Load all projects
     const loadProjects = useCallback(
         async (query?: ProjectQuery) => {
             if (!isBrowser) return;
@@ -59,7 +56,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
         [isBrowser]
     );
 
-    // Load a single project
     const loadProject = useCallback(
         async (projectId: string) => {
             if (!isBrowser) return;
@@ -82,7 +78,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
         [isBrowser]
     );
 
-    // Create a new project
     const createProject = useCallback(
         async (data: CreateProjectData): Promise<Project> => {
             if (!isBrowser) {
@@ -106,7 +101,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
         [isBrowser]
     );
 
-    // Update a project
     const updateProject = useCallback(
         async (projectId: string, data: Partial<Project>): Promise<Project> => {
             if (!isBrowser) {
@@ -130,7 +124,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
         [isBrowser]
     );
 
-    // Delete a project
     const deleteProject = useCallback(
         async (projectId: string): Promise<void> => {
             if (!isBrowser) {
@@ -183,7 +176,6 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
         [isBrowser]
     );
 
-    // Refresh projects list
     const refresh = useCallback(async () => {
         await loadProjects();
     }, [loadProjects]);
@@ -206,13 +198,11 @@ export function useProjects(initialProjects: Project[] = [], opts?: { disableRea
     });
 
     return {
-        // State
         projects,
         loading,
         error,
         currentProject,
 
-        // Methods
         loadProjects,
         loadProject,
         createProject,

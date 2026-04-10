@@ -38,7 +38,6 @@ export function Dashboard({ currentUser, initialProjects = [] }: DashboardProps)
 
         const currentIds = new Set(projects.map((p) => p._id));
 
-        // Join new projects
         projects.forEach((project) => {
             if (!joinedIdsRef.current.has(project._id)) {
                 joinProject(project._id);
@@ -46,7 +45,6 @@ export function Dashboard({ currentUser, initialProjects = [] }: DashboardProps)
             }
         });
 
-        // Leave removed projects
         joinedIdsRef.current.forEach((id) => {
             if (!currentIds.has(id)) {
                 leaveProject(id);
@@ -60,7 +58,6 @@ export function Dashboard({ currentUser, initialProjects = [] }: DashboardProps)
             joinedIds.forEach((id) => leaveProject(id));
             joinedIds.clear();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projects]);
 
     useEffect(() => {

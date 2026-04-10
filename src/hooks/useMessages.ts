@@ -10,13 +10,11 @@ import { useCallback, useState } from 'react';
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface UseMessagesReturn {
-    // State
     messages: Message[];
     loading: boolean;
     error: string | null;
     currentMessage: Message | null;
 
-    // Methods
     loadMessages: (projectId: string, query?: MessageQuery) => Promise<void>;
     loadMessage: (messageId: string) => Promise<void>;
     createMessage: (data: CreateMessageData) => Promise<Message>;

@@ -1,17 +1,15 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { backendUrl } from '@/config/environment';
 import { cn } from '@/lib/utils';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal as XTerm } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 import { Bug, Check, Eraser, RefreshCw, Square, Terminal as TerminalIcon, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import '@xterm/xterm/css/xterm.css';
 import { DebugPanel } from './DebugPanel';
-import { backendUrl } from '@/config/environment';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TerminalProps {
     isOpen: boolean;
@@ -26,30 +24,31 @@ interface TerminalProps {
     onRetry?: (() => void) | undefined;
 }
 
-// ─── Status chip ──────────────────────────────────────────────────────────────
-
 const STATUS_CONFIG = {
-    starting:  { label: 'Starting',  dot: 'bg-amber-400 animate-pulse',  text: 'text-amber-300',   ring: 'ring-amber-500/20' },
-    repairing: { label: 'Repairing', dot: 'bg-amber-500 animate-spin',   text: 'text-amber-300',   ring: 'ring-amber-500/20' },
-    running:   { label: 'Running',   dot: 'bg-emerald-400',               text: 'text-emerald-300', ring: 'ring-emerald-500/20' },
-    stopped:   { label: 'Stopped',   dot: 'bg-zinc-500',                  text: 'text-zinc-400',    ring: 'ring-zinc-500/20'  },
-    error:     { label: 'Error',     dot: 'bg-red-500',                   text: 'text-red-300',     ring: 'ring-red-500/20'   },
+    starting: { label: 'Starting', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-300', ring: 'ring-amber-500/20' },
+    repairing: { label: 'Repairing', dot: 'bg-amber-500 animate-spin', text: 'text-amber-300', ring: 'ring-amber-500/20' },
+    running: { label: 'Running', dot: 'bg-emerald-400', text: 'text-emerald-300', ring: 'ring-emerald-500/20' },
+    stopped: { label: 'Stopped', dot: 'bg-zinc-500', text: 'text-zinc-400', ring: 'ring-zinc-500/20' },
+    error: { label: 'Error', dot: 'bg-red-500', text: 'text-red-300', ring: 'ring-red-500/20' }
 } as const;
 
 const FAILURE_LABELS: Record<NonNullable<TerminalProps['failureType']>, string> = {
     port_never_opened: 'Import/syntax error',
-    process_crashed:   'Crashed after startup',
-    http_not_serving:  'Port open — HTTP not responding',
-    timeout:           'Health check timed out',
+    process_crashed: 'Crashed after startup',
+    http_not_serving: 'Port open — HTTP not responding',
+    timeout: 'Health check timed out'
 };
 
 function StatusChip({ status }: { status: NonNullable<TerminalProps['sessionStatus']> }) {
     const cfg = STATUS_CONFIG[status];
-    const icon = status === 'running'
-        ? <Check className="w-2.5 h-2.5" />
-        : status === 'error'
-        ? <X className="w-2.5 h-2.5" />
-        : <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />;
+    const icon =
+        status === 'running' ? (
+            <Check className="w-2.5 h-2.5" />
+        ) : status === 'error' ? (
+            <X className="w-2.5 h-2.5" />
+        ) : (
+            <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
+        );
     return (
         <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-semibold ring-1 bg-zinc-900', cfg.text, cfg.ring)}>
             {icon}
@@ -58,55 +57,39 @@ function StatusChip({ status }: { status: NonNullable<TerminalProps['sessionStat
     );
 }
 
-// ─── xterm theme (zinc-mapped) ────────────────────────────────────────────────
-
 const XTERM_THEME = {
-    background:       '#09090b', // zinc-950
-    foreground:       '#f4f4f5', // zinc-100
-    cursor:           '#e4e4e7', // zinc-200
-    cursorAccent:     '#09090b',
+    background: '#09090b',
+    foreground: '#f4f4f5',
+    cursor: '#e4e4e7',
+    cursorAccent: '#09090b',
     selectionBackground: 'rgba(161,161,170,0.2)',
-    // Standard ANSI (zinc-mapped where sensible, saturated for signal colours)
-    black:            '#18181b', // zinc-900
-    red:              '#f87171', // red-400
-    green:            '#4ade80', // green-400
-    yellow:           '#facc15', // yellow-400
-    blue:             '#60a5fa', // blue-400
-    magenta:          '#c084fc', // purple-400
-    cyan:             '#22d3ee', // cyan-400
-    white:            '#d4d4d8', // zinc-300
-    brightBlack:      '#3f3f46', // zinc-700
-    brightRed:        '#fca5a5', // red-300
-    brightGreen:      '#86efac', // green-300
-    brightYellow:     '#fde047', // yellow-300
-    brightBlue:       '#93c5fd', // blue-300
-    brightMagenta:    '#d8b4fe', // purple-300
-    brightCyan:       '#67e8f9', // cyan-300
-    brightWhite:      '#f4f4f5', // zinc-100
+
+    black: '#18181b',
+    red: '#f87171',
+    green: '#4ade80',
+    yellow: '#facc15',
+    blue: '#60a5fa',
+    magenta: '#c084fc',
+    cyan: '#22d3ee',
+    white: '#d4d4d8',
+    brightBlack: '#3f3f46',
+    brightRed: '#fca5a5',
+    brightGreen: '#86efac',
+    brightYellow: '#fde047',
+    brightBlue: '#93c5fd',
+    brightMagenta: '#d8b4fe',
+    brightCyan: '#67e8f9',
+    brightWhite: '#f4f4f5'
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function Terminal({
-    isOpen,
-    onClose,
-    projectId,
-    sessionId,
-    sessionStatus,
-    failureType,
-    sessionOutput = [],
-    variant = 'panel',
-    onClear,
-    onRetry,
-}: TerminalProps) {
-    const containerRef  = useRef<HTMLDivElement>(null);
-    const xtermRef      = useRef<XTerm | null>(null);
-    const fitAddonRef   = useRef<FitAddon | null>(null);
+export function Terminal({ isOpen, onClose, projectId, sessionId, sessionStatus, failureType, sessionOutput = [], variant = 'panel', onClear, onRetry }: TerminalProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const xtermRef = useRef<XTerm | null>(null);
+    const fitAddonRef = useRef<FitAddon | null>(null);
     const initializedRef = useRef(false);
     const lastOutputLen = useRef(0);
     const [debugMode, setDebugMode] = useState(false);
 
-    // ── Init xterm on mount ──────────────────────────────────────────────────
     useEffect(() => {
         if (!containerRef.current || initializedRef.current) return;
         initializedRef.current = true;
@@ -120,10 +103,10 @@ export function Terminal({
             cursorBlink: true,
             cursorStyle: 'bar',
             scrollback: 5000,
-            allowProposedApi: true,
+            allowProposedApi: true
         });
 
-        const fitAddon      = new FitAddon();
+        const fitAddon = new FitAddon();
         const webLinksAddon = new WebLinksAddon();
 
         term.loadAddon(fitAddon);
@@ -131,28 +114,26 @@ export function Terminal({
         term.open(containerRef.current);
         fitAddon.fit();
 
-        xtermRef.current    = term;
+        xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        // Welcome banner
         term.write(
             `\x1b[90m┌─────────────────────────────────────────────────────────\r\n` +
-            `│  \x1b[97mmockline\x1b[90m  sandbox terminal` +
-            (projectId ? `  \x1b[2m${projectId.slice(0, 8)}\x1b[0m\x1b[90m` : '') + `\r\n` +
-            `└─────────────────────────────────────────────────────────\x1b[0m\r\n\r\n`
+                `│  \x1b[97mmockline\x1b[90m  sandbox terminal` +
+                (projectId ? `  \x1b[2m${projectId.slice(0, 8)}\x1b[0m\x1b[90m` : '') +
+                `\r\n` +
+                `└─────────────────────────────────────────────────────────\x1b[0m\r\n\r\n`
         );
 
         return () => {
             term.dispose();
-            xtermRef.current    = null;
+            xtermRef.current = null;
             fitAddonRef.current = null;
             initializedRef.current = false;
-            lastOutputLen.current  = 0;
+            lastOutputLen.current = 0;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ── Fit on resize ────────────────────────────────────────────────────────
     useEffect(() => {
         if (!containerRef.current || !fitAddonRef.current) return;
         const ro = new ResizeObserver(() => fitAddonRef.current?.fit());
@@ -160,7 +141,6 @@ export function Terminal({
         return () => ro.disconnect();
     }, []);
 
-    // ── Stream new sessionOutput lines into xterm ────────────────────────────
     useEffect(() => {
         const term = xtermRef.current;
         if (!term) return;
@@ -172,7 +152,6 @@ export function Terminal({
         lastOutputLen.current = sessionOutput.length;
     }, [sessionOutput]);
 
-    // ── Session status transitions ───────────────────────────────────────────
     const prevStatusRef = useRef<string | null>(null);
     useEffect(() => {
         const term = xtermRef.current;
@@ -181,14 +160,14 @@ export function Terminal({
 
         if (!sessionStatus) return;
 
-        const ts  = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
         const tsFmt = `\x1b[90m[${ts}]\x1b[0m `;
         const msgs: Record<string, string> = {
-            starting:  `${tsFmt}\x1b[33m\x1b[1m◉ STARTING\x1b[0m   Initialising sandbox container…\r\n`,
+            starting: `${tsFmt}\x1b[33m\x1b[1m◉ STARTING\x1b[0m   Initialising sandbox container…\r\n`,
             repairing: `${tsFmt}\x1b[33m\x1b[1m⟳ REPAIRING\x1b[0m  Auto-repair in progress…\r\n`,
-            running:   `${tsFmt}\x1b[92m\x1b[1m◉ RUNNING\x1b[0m    Server ready — accepting connections.\r\n`,
-            stopped:   `${tsFmt}\x1b[90m\x1b[1m◎ STOPPED\x1b[0m    Session terminated.\r\n`,
-            error:     `${tsFmt}\x1b[91m\x1b[1m◉ ERROR\x1b[0m      Session encountered a fatal error.\r\n`,
+            running: `${tsFmt}\x1b[92m\x1b[1m◉ RUNNING\x1b[0m    Server ready — accepting connections.\r\n`,
+            stopped: `${tsFmt}\x1b[90m\x1b[1m◎ STOPPED\x1b[0m    Session terminated.\r\n`,
+            error: `${tsFmt}\x1b[91m\x1b[1m◉ ERROR\x1b[0m      Session encountered a fatal error.\r\n`
         };
         if (msgs[sessionStatus]) term.write(msgs[sessionStatus]);
     }, [sessionStatus]);
@@ -210,17 +189,9 @@ export function Terminal({
 
                         {sessionStatus && <StatusChip status={sessionStatus} />}
 
-                        {sessionStatus === 'error' && failureType && (
-                            <span className="text-[10px] font-mono text-red-400/80">
-                                {FAILURE_LABELS[failureType]}
-                            </span>
-                        )}
+                        {sessionStatus === 'error' && failureType && <span className="text-[10px] font-mono text-red-400/80">{FAILURE_LABELS[failureType]}</span>}
 
-                        {!sessionStatus && (
-                            <span className="text-[10px] font-mono text-zinc-600">
-                                {projectId ? `· ${projectId.slice(0, 8)}` : '· no session'}
-                            </span>
-                        )}
+                        {!sessionStatus && <span className="text-[10px] font-mono text-zinc-600">{projectId ? `· ${projectId.slice(0, 8)}` : '· no session'}</span>}
                     </div>
 
                     <div className="flex items-center gap-0.5">
@@ -269,23 +240,14 @@ export function Terminal({
 
                 {/* Debug panel or xterm container */}
                 {debugMode && sessionId ? (
-                    <DebugPanel
-                        sessionId={sessionId}
-                        backendUrl={backendUrl}
-                        onClose={() => setDebugMode(false)}
-                    />
+                    <DebugPanel sessionId={sessionId} backendUrl={backendUrl} onClose={() => setDebugMode(false)} />
                 ) : (
-                    <div
-                        ref={containerRef}
-                        className="flex-1 overflow-hidden"
-                        style={{ padding: '6px 8px' }}
-                    />
+                    <div ref={containerRef} className="flex-1 overflow-hidden" style={{ padding: '6px 8px' }} />
                 )}
             </div>
         );
     }
 
-    // Floating variant
     if (!isOpen) return null;
 
     return (
@@ -318,5 +280,4 @@ export function Terminal({
     );
 }
 
-// Re-export unused named imports from old API so existing call sites don't break
 export { Zap as _unused1, Square as _unused2 };

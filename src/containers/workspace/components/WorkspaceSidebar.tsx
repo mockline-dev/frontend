@@ -4,12 +4,11 @@ import { FileTree } from '@/components/custom/FileTree';
 import { FileTreeHeader } from '@/components/custom/FileTreeHeader';
 import { Button } from '@/components/ui/button';
 import { AiAgent } from '@/containers/aiAgent/AIAgent';
-import type { SidebarView, FileNode } from '@/types/workspace';
 import type { Snapshot } from '@/types/feathers';
+import type { FileNode, SidebarView } from '@/types/workspace';
 import { Bot, FolderTree, History, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
 
 interface WorkspaceSidebarProps {
     sidebarView: SidebarView;
@@ -19,11 +18,9 @@ interface WorkspaceSidebarProps {
     onFileSelect: (path: string) => void;
     updatingFiles: Set<string>;
 
-    // AI agent
     currentProjectId: string | undefined;
     onFilesChanged: () => void;
 
-    // Versions / Snapshots
     snapshots: Snapshot[];
     snapshotsLoading: boolean;
     isSnapshotCreating: boolean;
@@ -73,9 +70,7 @@ export function WorkspaceSidebar({
                         key={id}
                         onClick={() => onSidebarViewChange(id)}
                         className={`flex-1 px-1 py-2.5 text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-                            sidebarView === id
-                                ? 'bg-white text-zinc-900 border-b-2 border-black'
-                                : 'text-zinc-500 hover:text-zinc-900 bg-zinc-50'
+                            sidebarView === id ? 'bg-white text-zinc-900 border-b-2 border-black' : 'text-zinc-500 hover:text-zinc-900 bg-zinc-50'
                         }`}
                     >
                         {id === 'files' && <FolderTree className="w-3.5 h-3.5" />}
@@ -124,10 +119,7 @@ export function WorkspaceSidebar({
                         </div>
                     </div>
                 ) : sidebarView === 'ai' ? (
-                    <AiAgent
-                        {...(currentProjectId ? { projectId: currentProjectId } : {})}
-                        onFilesChanged={onFilesChanged}
-                    />
+                    <AiAgent {...(currentProjectId ? { projectId: currentProjectId } : {})} onFilesChanged={onFilesChanged} />
                 ) : (
                     <VersionsPanel
                         currentProjectId={currentProjectId}
@@ -169,12 +161,7 @@ function VersionsPanel({
     return (
         <div className="h-full flex flex-col">
             <div className="p-3 border-b border-zinc-200">
-                <Button
-                    onClick={onCreateSnapshot}
-                    disabled={!currentProjectId || isSnapshotCreating}
-                    size="sm"
-                    className="w-full h-8 text-xs"
-                >
+                <Button onClick={onCreateSnapshot} disabled={!currentProjectId || isSnapshotCreating} size="sm" className="w-full h-8 text-xs">
                     {isSnapshotCreating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <History className="w-3 h-3 mr-1" />}
                     Create Snapshot
                 </Button>
@@ -204,26 +191,12 @@ function VersionsPanel({
                                             {snapshot.fileCount} files · {(snapshot.totalSize / 1024).toFixed(1)} KB
                                         </p>
                                     </div>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 uppercase">
-                                        {snapshot.trigger}
-                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 uppercase">{snapshot.trigger}</span>
                                 </div>
-                                <p className="text-[11px] text-zinc-400 mt-1.5">
-                                    {new Date(snapshot.createdAt).toLocaleString()}
-                                </p>
+                                <p className="text-[11px] text-zinc-400 mt-1.5">{new Date(snapshot.createdAt).toLocaleString()}</p>
                                 <div className="mt-2 flex items-center gap-1.5">
-                                    <Button
-                                        onClick={() => onRollbackSnapshot(snapshot._id)}
-                                        disabled={isBusy}
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-6 text-[11px]"
-                                    >
-                                        {isBusy ? (
-                                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                        ) : (
-                                            <RotateCcw className="w-3 h-3 mr-1" />
-                                        )}
+                                    <Button onClick={() => onRollbackSnapshot(snapshot._id)} disabled={isBusy} variant="outline" size="sm" className="h-6 text-[11px]">
+                                        {isBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1" />}
                                         Restore
                                     </Button>
                                     <Button

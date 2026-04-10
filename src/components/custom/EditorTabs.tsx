@@ -1,7 +1,7 @@
 'use client';
 
-import { getFileIcon } from '@/utils/fileIcons';
 import type { EditorTab } from '@/types/workspace';
+import { getFileIcon } from '@/utils/fileIcons';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useRef } from 'react';
@@ -20,7 +20,6 @@ export function EditorTabs({ tabs, activeTabId, onSelectTab, onCloseTab }: Edito
 
     return (
         <div className="relative h-9 bg-zinc-100 border-b border-zinc-200 flex items-end overflow-hidden">
-            {/* Horizontal scroll container */}
             <div ref={scrollRef} className="flex items-end h-full overflow-x-auto overflow-y-hidden scrollbar-none">
                 <AnimatePresence initial={false}>
                     {tabs.map((tab) => {
@@ -49,12 +48,8 @@ export function EditorTabs({ tabs, activeTabId, onSelectTab, onCloseTab }: Edito
                                     <Icon className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                                     <span className="max-w-[120px] truncate">{fileName}</span>
 
-                                    {/* Close / dirty indicator */}
                                     {tab.isDirty ? (
-                                        <span
-                                            className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"
-                                            title="Unsaved changes"
-                                        />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
                                     ) : (
                                         <span
                                             role="button"
@@ -75,7 +70,6 @@ export function EditorTabs({ tabs, activeTabId, onSelectTab, onCloseTab }: Edito
                 </AnimatePresence>
             </div>
 
-            {/* Right-edge fade for overflow */}
             <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-linear-to-l from-zinc-100 to-transparent" />
         </div>
     );

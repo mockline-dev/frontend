@@ -1,7 +1,7 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { ProjectCreationState } from '@/hooks/useProjectCreation';
+import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -17,7 +17,7 @@ const STAGES = [
     { key: 'planning', label: 'Planning' },
     { key: 'generating', label: 'Generating' },
     { key: 'validating', label: 'Validating' },
-    { key: 'finalizing', label: 'Finalizing' },
+    { key: 'finalizing', label: 'Finalizing' }
 ] as const;
 
 function resolveActiveStage(currentStage: string | undefined, percentage: number): number {
@@ -26,7 +26,6 @@ function resolveActiveStage(currentStage: string | undefined, percentage: number
         const idx = STAGES.findIndex((s) => normalized.startsWith(s.key));
         if (idx >= 0) return idx;
     }
-    // Fallback: linear percentage mapping (0-19 → 0, 20-39 → 1, …, 80-100 → 4)
     return Math.min(4, Math.floor(percentage / 20));
 }
 
@@ -38,31 +37,9 @@ function formatElapsed(seconds: number): string {
 }
 
 export default function ProjectPreparationOverlay({ visible, state, onCancel }: ProjectPreparationOverlayProps) {
-    // BUG 1 fix: start as false so the 500ms delay actually applies
     const [showLoader, setShowLoader] = useState(false);
     const [elapsed, setElapsed] = useState(0);
 
-const calculateEstimatedTime = (progress: GenerationProgress | null, startTime: number | undefined): number | null => {
-    if (!progress || !startTime || progress.percentage === 0) {
-        return null;
-    }
-
-    const elapsed = Date.now() - startTime;
-    const percentage = progress.percentage;
-    const estimatedTotal = (elapsed / percentage) * 100;
-    const remaining = estimatedTotal - elapsed;
-
-    return Math.max(0, remaining);
-};
-
-export default function ProjectPreparationOverlay({ visible, state, onCancel }: ProjectPreparationOverlayProps) {
-    const [showLoader, setShowLoader] = useState(false);
-    const [estimatedTime, setEstimatedTime] = useState<number | null>(null);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-    const { progress, status, error } = state;
-
-    // Handle visibility delay for smooth animation
     useEffect(() => {
         if (!visible) return;
 
@@ -85,9 +62,7 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
         };
     }, [visible]);
 
-    // Calculate and update estimated time remaining
-    useEffect(() => {
-        const shouldUpdate = visible && progress && progress.startedAt && status !== 'ready' && status !== 'error';
+    if (!visible || !showLoader) return null;
 
     const percent = Math.max(0, Math.min(100, Math.round(state.progress?.percentage ?? 0)));
     const activeStage = resolveActiveStage(state.progress?.currentStage, percent);
@@ -108,11 +83,7 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
                         <p className="text-sm text-black/50 mt-0.5">Started {formatElapsed(elapsed)} ago</p>
                     </div>
                     {onCancel && (
-                        <button
-                            onClick={onCancel}
-                            className="p-1.5 rounded-lg hover:bg-black/5 text-black/40 hover:text-black/70 transition-colors"
-                            aria-label="Cancel"
-                        >
+                        <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-black/5 text-black/40 hover:text-black/70 transition-colors" aria-label="Cancel">
                             <X className="w-4 h-4" />
                         </button>
                     )}
@@ -171,21 +142,13 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
                                                 )}
                                             </div>
                                             <span
-                                                className={cn(
-                                                    'text-[10px] font-medium truncate w-full text-center',
-                                                    (isDone || isActive) ? 'text-black' : 'text-black/30'
-                                                )}
+                                                className={cn('text-[10px] font-medium truncate w-full text-center', isDone || isActive ? 'text-black' : 'text-black/30')}
                                             >
                                                 {stage.label}
                                             </span>
                                         </div>
                                         {idx < STAGES.length - 1 && (
-                                            <div
-                                                className={cn(
-                                                    'h-px flex-1 mx-1 mb-4 transition-colors',
-                                                    isDone ? 'bg-black' : 'bg-black/10'
-                                                )}
-                                            />
+                                            <div className={cn('h-px flex-1 mx-1 mb-4 transition-colors', isDone ? 'bg-black' : 'bg-black/10')} />
                                         )}
                                     </div>
                                 );
@@ -195,15 +158,9 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
                         {/* Shimmer progress bar */}
                         <div className="space-y-1.5">
                             <div className="relative h-2 rounded-full bg-black/8 overflow-hidden">
-                                <div
-                                    className="absolute inset-y-0 left-0 rounded-full bg-black transition-all duration-500"
-                                    style={{ width: `${percent}%` }}
-                                />
+                                <div className="absolute inset-y-0 left-0 rounded-full bg-black transition-all duration-500" style={{ width: `${percent}%` }} />
                                 {/* Shimmer sweep */}
-                                <div
-                                    className="absolute inset-y-0 rounded-full overflow-hidden transition-all duration-500"
-                                    style={{ width: `${percent}%` }}
-                                >
+                                <div className="absolute inset-y-0 rounded-full overflow-hidden transition-all duration-500" style={{ width: `${percent}%` }}>
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
                                 </div>
                             </div>
@@ -212,7 +169,9 @@ export default function ProjectPreparationOverlay({ visible, state, onCancel }: 
                                 {state.progress?.currentFile ? (
                                     <span className="truncate max-w-[200px] text-right">{state.progress.currentFile}</span>
                                 ) : state.progress && state.progress.totalFiles > 0 ? (
-                                    <span>{state.progress.filesGenerated}/{state.progress.totalFiles} files</span>
+                                    <span>
+                                        {state.progress.filesGenerated}/{state.progress.totalFiles} files
+                                    </span>
                                 ) : (
                                     <span>Preparing files…</span>
                                 )}

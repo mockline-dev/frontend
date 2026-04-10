@@ -61,7 +61,6 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Project Name */}
             <div className="space-y-2">
                 <Label htmlFor="name">Project Name</Label>
                 <Input
@@ -76,7 +75,6 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 />
             </div>
 
-            {/* Project Description */}
             <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -91,7 +89,6 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 />
             </div>
 
-            {/* Framework Selection */}
             <div className="space-y-2">
                 <Label>Framework</Label>
                 <div className="grid grid-cols-2 gap-4">
@@ -116,7 +113,6 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 </div>
             </div>
 
-            {/* Language Selection */}
             <div className="space-y-2">
                 <Label>Language</Label>
                 <div className="grid grid-cols-2 gap-4">
@@ -141,16 +137,13 @@ export function ProjectCreationForm({ values, isSubmitting, onChange, onSubmit, 
                 </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3">
-                {/* Cancel Button */}
                 {onCancel && (
                     <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="flex-1">
                         Cancel
                     </Button>
                 )}
 
-                {/* Submit Button */}
                 <Button type="submit" disabled={isSubmitting || !values.name.trim() || !values.description.trim()} className="flex-1">
                     {isSubmitting ? 'Creating...' : 'Create Project'}
                 </Button>

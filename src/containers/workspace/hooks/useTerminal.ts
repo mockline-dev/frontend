@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 
 export interface TerminalLine {
     id: string;
-    raw: string; // may contain ANSI escape codes
+    raw: string;
     timestamp: number;
 }
 
@@ -23,7 +23,6 @@ export interface UseTerminalReturn {
 let lineCounter = 0;
 const mkId = () => `tl-${Date.now()}-${++lineCounter}`;
 
-// ANSI colour helpers (zinc-mapped)
 const ANSI = {
     reset: '\x1b[0m',
     bold: '\x1b[1m',
@@ -40,7 +39,7 @@ const ANSI = {
     brightWhite: '\x1b[97m',
     gray: '\x1b[90m',
     bgRed: '\x1b[41m',
-    bgGreen: '\x1b[42m',
+    bgGreen: '\x1b[42m'
 } as const;
 
 export function useTerminal(): UseTerminalReturn {
@@ -68,24 +67,21 @@ export function useTerminal(): UseTerminalReturn {
         setLines([]);
     }, []);
 
-    const writeSessionStatus = useCallback(
-        (status: 'starting' | 'running' | 'stopped' | 'error', message?: string) => {
-            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
-            const timestamp = `${ANSI.gray}[${ts}]${ANSI.reset} `;
+    const writeSessionStatus = useCallback((status: 'starting' | 'running' | 'stopped' | 'error', message?: string) => {
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const timestamp = `${ANSI.gray}[${ts}]${ANSI.reset} `;
 
-            const statusMap = {
-                starting: `${ANSI.yellow}${ANSI.bold}◉ STARTING${ANSI.reset}  ${message ?? 'Initialising sandbox container…'}`,
-                running:  `${ANSI.brightGreen}${ANSI.bold}◉ RUNNING${ANSI.reset}   ${message ?? 'Server is ready and accepting connections.'}`,
-                stopped:  `${ANSI.gray}${ANSI.bold}◎ STOPPED${ANSI.reset}   ${message ?? 'Session terminated.'}`,
-                error:    `${ANSI.brightRed}${ANSI.bold}◉ ERROR${ANSI.reset}     ${message ?? 'Session encountered a fatal error.'}`,
-            };
+        const statusMap = {
+            starting: `${ANSI.yellow}${ANSI.bold}◉ STARTING${ANSI.reset}  ${message ?? 'Initialising sandbox container…'}`,
+            running: `${ANSI.brightGreen}${ANSI.bold}◉ RUNNING${ANSI.reset}   ${message ?? 'Server is ready and accepting connections.'}`,
+            stopped: `${ANSI.gray}${ANSI.bold}◎ STOPPED${ANSI.reset}   ${message ?? 'Session terminated.'}`,
+            error: `${ANSI.brightRed}${ANSI.bold}◉ ERROR${ANSI.reset}     ${message ?? 'Session encountered a fatal error.'}`
+        };
 
-            const line = timestamp + statusMap[status] + '\r\n';
-            terminalRef.current?.write(line);
-            setLines((prev) => [...prev, { id: mkId(), raw: line, timestamp: Date.now() }]);
-        },
-        []
-    );
+        const line = timestamp + statusMap[status] + '\r\n';
+        terminalRef.current?.write(line);
+        setLines((prev) => [...prev, { id: mkId(), raw: line, timestamp: Date.now() }]);
+    }, []);
 
     const writeSandboxResult = useCallback(
         ({ success, compilationOutput, testOutput, durationMs }: { success: boolean; compilationOutput?: string; testOutput?: string; durationMs?: number }) => {
@@ -106,11 +102,13 @@ export function useTerminal(): UseTerminalReturn {
             if (testOutput?.trim()) {
                 out += `${ANSI.cyan}${ANSI.bold}── Tests${ANSI.reset}\r\n`;
                 for (const l of testOutput.split('\n')) {
-                    out += `  ${l.startsWith('FAIL') || l.startsWith('✖') || l.includes('Error')
-                        ? `${ANSI.red}${l}${ANSI.reset}`
-                        : l.startsWith('PASS') || l.startsWith('✔')
-                            ? `${ANSI.green}${l}${ANSI.reset}`
-                            : l}\r\n`;
+                    out += `  ${
+                        l.startsWith('FAIL') || l.startsWith('✖') || l.includes('Error')
+                            ? `${ANSI.red}${l}${ANSI.reset}`
+                            : l.startsWith('PASS') || l.startsWith('✔')
+                              ? `${ANSI.green}${l}${ANSI.reset}`
+                              : l
+                    }\r\n`;
                 }
             }
 

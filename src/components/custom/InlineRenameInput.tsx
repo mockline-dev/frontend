@@ -16,7 +16,6 @@ export function InlineRenameInput({ initialValue, onConfirm, onCancel, existingN
         const input = inputRef.current;
         if (!input) return;
         input.focus();
-        // Select name without extension
         const dotIndex = initialValue.lastIndexOf('.');
         input.setSelectionRange(0, dotIndex > 0 ? dotIndex : initialValue.length);
     }, [initialValue]);
@@ -33,9 +32,18 @@ export function InlineRenameInput({ initialValue, onConfirm, onCancel, existingN
 
     const commit = (value: string) => {
         const trimmed = value.trim();
-        if (!trimmed || trimmed === initialValue) { onCancel(); return; }
-        if (trimmed.includes('/') || trimmed.includes('\\')) { onCancel(); return; }
-        if (existingNames.includes(trimmed)) { onCancel(); return; }
+        if (!trimmed || trimmed === initialValue) {
+            onCancel();
+            return;
+        }
+        if (trimmed.includes('/') || trimmed.includes('\\')) {
+            onCancel();
+            return;
+        }
+        if (existingNames.includes(trimmed)) {
+            onCancel();
+            return;
+        }
         onConfirm(trimmed);
     };
 

@@ -3,7 +3,7 @@
 import { createSession as createSessionAction } from '@/api/sessions/createSession';
 import { deleteSession as deleteSessionAction } from '@/api/sessions/deleteSession';
 import { fetchSessions } from '@/api/sessions/fetchSessions';
-import { CreateSessionData, Session, SessionQuery } from '@/types/feathers';
+import { CreateSessionData, Session } from '@/types/feathers';
 import { useCallback, useState } from 'react';
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
@@ -41,7 +41,7 @@ export function useSessions(): UseSessionsReturn {
                 const result = await fetchSessions({ query: { projectId, $sort: { createdAt: -1 } } });
                 const data = Array.isArray(result) ? result : result.data || [];
                 setSessions(data);
-                // Set the most recent running/starting session as current
+
                 const active = data.find((s) => ['running', 'starting', 'repairing'].includes(s.status));
                 if (active) setCurrentSession(active);
             } catch (err) {
@@ -88,8 +88,6 @@ export function useSessions(): UseSessionsReturn {
 
             try {
                 await deleteSessionAction({ id: sessionId });
-                // Don't optimistically remove — the 'sessions patched' event will update status to 'stopped'
-                // and 'sessions removed' will handle actual deletion
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Failed to stop session';
                 setError(message);

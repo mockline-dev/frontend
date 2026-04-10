@@ -19,7 +19,6 @@ const socket = io(apiSocketBase, {
 feathersClient.configure(socketio(socket));
 feathersClient.configure(auth({}));
 
-// Development-only connection monitoring for debugging
 if (process.env.NODE_ENV === 'development') {
     socket.on('connect', () => {
         console.log('[Feathers] Socket connected');

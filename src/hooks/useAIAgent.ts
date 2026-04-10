@@ -2,7 +2,14 @@
 
 import { createMessage as createMessageAction } from '@/api/messages/createMessage';
 import { fetchMessages } from '@/api/messages/fetchMessages';
-import { type Message, type OrchestrationCompletedEvent, type OrchestrationErrorEvent, type OrchestrationIntentEvent, type OrchestrationTokenEvent, type FilesPersistedEvent } from '@/types/feathers';
+import {
+    type FilesPersistedEvent,
+    type Message,
+    type OrchestrationCompletedEvent,
+    type OrchestrationErrorEvent,
+    type OrchestrationIntentEvent,
+    type OrchestrationTokenEvent
+} from '@/types/feathers';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useRealtimeUpdates, useSocketEvent } from './useRealtimeUpdates';
@@ -10,7 +17,6 @@ import { useRealtimeUpdates, useSocketEvent } from './useRealtimeUpdates';
 const INITIAL_MESSAGES_LIMIT = 10;
 const OLDER_MESSAGES_BATCH_SIZE = 50;
 
-/** Placeholder ID for the in-flight streaming message shown in the UI. */
 const STREAMING_MESSAGE_ID = '__streaming__';
 
 export interface UseAIAgentReturn {
@@ -21,7 +27,6 @@ export interface UseAIAgentReturn {
     setInput: (value: string) => void;
     isLoading: boolean;
     isStreaming: boolean;
-    /** Current orchestration pipeline stage, e.g. 'classifying' | 'enhancing' | 'generating' | 'persisting' | null */
     pipelineStage: string | null;
     retryingMessageId: string | null;
     handleSubmit: (content?: string) => Promise<void>;
@@ -38,13 +43,7 @@ function mergeMessagesById(existing: Message[], incoming: Message[]): Message[] 
     return Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
 }
 
-export function useAIAgent({
-    projectId,
-    onFilesChanged,
-}: {
-    projectId?: string;
-    onFilesChanged?: () => void;
-}): UseAIAgentReturn {
+export function useAIAgent({ projectId, onFilesChanged }: { projectId?: string; onFilesChanged?: () => void }): UseAIAgentReturn {
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasOlderMessages, setHasOlderMessages] = useState(false);
     const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
@@ -57,9 +56,6 @@ export function useAIAgent({
     const streamingContentRef = useRef('');
     const initializedRef = useRef(false);
 
-    // -------------------------------------------------------------------------
-    // Initial message load
-    // -------------------------------------------------------------------------
     const loadInitialMessages = useCallback(async () => {
         if (!projectId || initializedRef.current) return;
         initializedRef.current = true;
@@ -69,8 +65,8 @@ export function useAIAgent({
                 query: {
                     projectId,
                     $sort: { createdAt: -1 },
-                    $limit: INITIAL_MESSAGES_LIMIT,
-                },
+                    $limit: INITIAL_MESSAGES_LIMIT
+                }
             });
             const fetched = Array.isArray(result) ? result : result.data || [];
             const sorted = [...fetched].sort((a, b) => a.createdAt - b.createdAt);
@@ -81,7 +77,6 @@ export function useAIAgent({
         }
     }, [projectId]);
 
-    // Trigger initial load when projectId becomes available
     const loadInitialRef = useRef(loadInitialMessages);
     loadInitialRef.current = loadInitialMessages;
     const projectIdRef = useRef(projectId);
@@ -89,14 +84,11 @@ export function useAIAgent({
         projectIdRef.current = projectId;
         initializedRef.current = false;
     }
-    // Call on first render with a projectId
+
     if (projectId && !initializedRef.current) {
         void loadInitialRef.current();
     }
 
-    // -------------------------------------------------------------------------
-    // Load older messages (pagination)
-    // -------------------------------------------------------------------------
     const loadOlderMessages = useCallback(async () => {
         if (!projectId || isLoadingOlderMessages || !hasOlderMessages) return;
 
@@ -110,8 +102,8 @@ export function useAIAgent({
                     projectId,
                     createdAt: { $lt: oldestCreatedAt },
                     $sort: { createdAt: -1 },
-                    $limit: OLDER_MESSAGES_BATCH_SIZE,
-                },
+                    $limit: OLDER_MESSAGES_BATCH_SIZE
+                }
             });
             const fetched = Array.isArray(result) ? result : result.data || [];
             const sorted = [...fetched].sort((a, b) => a.createdAt - b.createdAt);
@@ -124,9 +116,6 @@ export function useAIAgent({
         }
     }, [projectId, isLoadingOlderMessages, hasOlderMessages, messages]);
 
-    // -------------------------------------------------------------------------
-    // Send message — triggers full orchestration pipeline via POST /messages
-    // -------------------------------------------------------------------------
     const sendMessage = useCallback(
         async (content: string) => {
             if (!projectId || !content.trim()) return;
@@ -136,20 +125,19 @@ export function useAIAgent({
             setPipelineStage(null);
             streamingContentRef.current = '';
 
-            // Optimistically add user message
             const optimisticUser: Message = {
                 _id: `optimistic-${Date.now()}`,
                 projectId,
                 role: 'user',
                 content: trimmed,
                 createdAt: Date.now(),
-                updatedAt: Date.now(),
+                updatedAt: Date.now()
             };
             setMessages((prev) => [...prev.filter((m) => m._id !== STREAMING_MESSAGE_ID), optimisticUser]);
 
             try {
                 await createMessageAction({ projectId, role: 'user', content: trimmed });
-                // Keep optimistic message — real 'messages created' event will deduplicate it
+
                 setIsStreaming(true);
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Failed to send message';
@@ -194,13 +182,9 @@ export function useAIAgent({
         setMessages((prev) => prev.filter((m) => m._id !== STREAMING_MESSAGE_ID));
     }, []);
 
-    // -------------------------------------------------------------------------
-    // Real-time: Feathers service events
-    // -------------------------------------------------------------------------
     useRealtimeUpdates<Message>('messages', 'created', (message) => {
         if (message.projectId !== projectId) return;
         setMessages((prev) => {
-            // Remove streaming placeholder, any existing copy, and optimistic user message with same content
             const filtered = prev.filter(
                 (m) =>
                     m._id !== STREAMING_MESSAGE_ID &&
@@ -221,9 +205,6 @@ export function useAIAgent({
         setMessages((prev) => prev.map((m) => (m._id === message._id ? message : m)));
     });
 
-    // -------------------------------------------------------------------------
-    // Real-time: Orchestration pipeline events (Socket.IO)
-    // -------------------------------------------------------------------------
     useSocketEvent<OrchestrationIntentEvent>('orchestration:intent', (event) => {
         setPipelineStage(`Classifying: ${event.intent}`);
     });
@@ -246,7 +227,7 @@ export function useAIAgent({
             role: 'assistant',
             content: streamingContentRef.current,
             createdAt: Date.now(),
-            updatedAt: Date.now(),
+            updatedAt: Date.now()
         };
         setMessages((prev) => {
             const filtered = prev.filter((m) => m._id !== STREAMING_MESSAGE_ID);
@@ -256,7 +237,6 @@ export function useAIAgent({
 
     useSocketEvent<OrchestrationCompletedEvent>('orchestration:completed', () => {
         setPipelineStage('Persisting files…');
-        // isStreaming stays true until 'messages created' fires
     });
 
     useSocketEvent<OrchestrationErrorEvent>('orchestration:error', ({ error }) => {
@@ -285,6 +265,6 @@ export function useAIAgent({
         handleSubmit,
         retryMessage,
         stopStream,
-        loadOlderMessages,
+        loadOlderMessages
     };
 }

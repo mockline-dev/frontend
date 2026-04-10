@@ -19,19 +19,31 @@ const suggestedPrompts = [
     'Optimize my database queries',
     'Add rate limiting to endpoints',
     'Review my API structure',
-    'Add Docker configuration',
+    'Add Docker configuration'
 ];
 
 export function AiAgent({ projectId, onFilesChanged }: AIAgentProps) {
-    const { messages, hasOlderMessages, isLoadingOlderMessages, input, setInput, isLoading, isStreaming, pipelineStage, retryingMessageId, handleSubmit, retryMessage, loadOlderMessages, stopStream } =
-        useAIAgent({ ...(projectId ? { projectId } : {}), ...(onFilesChanged ? { onFilesChanged } : {}) });
+    const {
+        messages,
+        hasOlderMessages,
+        isLoadingOlderMessages,
+        input,
+        setInput,
+        isLoading,
+        isStreaming,
+        pipelineStage,
+        retryingMessageId,
+        handleSubmit,
+        retryMessage,
+        loadOlderMessages,
+        stopStream
+    } = useAIAgent({ ...(projectId ? { projectId } : {}), ...(onFilesChanged ? { onFilesChanged } : {}) });
 
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
     const isMobile = useIsMobile();
 
-    // Auto-scroll to bottom when new messages arrive or streaming
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
@@ -207,7 +219,15 @@ export function AiAgent({ projectId, onFilesChanged }: AIAgentProps) {
                 </div>
             )}
 
-            <ChatComposer value={input} onChange={setInput} onSubmit={handleFormSubmit} isLoading={isLoading} isStreaming={isStreaming} onStopGenerating={stopStream} placeholder="Ask Mocky..." />
+            <ChatComposer
+                value={input}
+                onChange={setInput}
+                onSubmit={handleFormSubmit}
+                isLoading={isLoading}
+                isStreaming={isStreaming}
+                onStopGenerating={stopStream}
+                placeholder="Ask Mocky..."
+            />
         </div>
     );
 }

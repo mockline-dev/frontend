@@ -56,7 +56,6 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
             }
 
             try {
-                // Step 1: Create project with basic metadata derived from prompt
                 const project = await createProject({
                     userId: options?.currentUser?.feathersId ?? '',
                     name: deriveProjectName(normalizedPrompt),
@@ -68,7 +67,6 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
 
                 if (!project) return;
 
-                // Step 2: POST first message — triggers backend orchestration pipeline
                 await createMessage({
                     projectId: project._id,
                     role: 'user',
@@ -96,13 +94,11 @@ export function useInitialScreen(options?: UseInitialScreenOptions) {
     return {
         promptValue,
         setPromptValue,
-        // Backend now handles enhancement; expose state for UI compatibility
+
         enhancedPrompt: creationState.enhancedPrompt ?? '',
         enhanceLoading: false,
         handleEnhancePrompt: async () => {},
         handleSendPrompt,
-        selectedStack,
-        setSelectedStack,
         creationState,
         isCreating,
         resetState,

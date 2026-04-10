@@ -33,13 +33,12 @@ export function buildRequest(state: RequestState, endpointHeaders?: Record<strin
     const hasBody = !['GET', 'HEAD', 'OPTIONS'].includes(state.method) && !!state.body;
     const headers = buildHeaders(state.headers, state.auth, state.contentType, hasBody);
 
-    // Merge endpoint headers (proxy auth) — user-provided headers take precedence
     const mergedHeaders = endpointHeaders ? { ...endpointHeaders, ...headers } : headers;
 
     const init: RequestInit = {
         method: state.method,
         headers: mergedHeaders,
-        ...(hasBody ? { body: state.body } : {}),
+        ...(hasBody ? { body: state.body } : {})
     };
 
     return { url, init };

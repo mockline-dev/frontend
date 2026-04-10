@@ -23,50 +23,52 @@ export function useOpenApiSpec(specUrl: string | undefined, endpointHeaders?: Re
     const retryCountRef = useRef(0);
     const abortRef = useRef<AbortController | null>(null);
 
-    const fetchSpec = useCallback(async (isRetry = false) => {
-        if (!specUrl) {
-            setGroups([]);
-            setLoading(false);
-            return;
-        }
-
-        if (!isRetry) {
-            retryCountRef.current = 0;
-            setError(null);
-        }
-
-        setLoading(true);
-
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
-        const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-        try {
-            const res = await fetch(specUrl, {
-                signal: controller.signal,
-                ...(endpointHeaders && Object.keys(endpointHeaders).length > 0 ? { headers: endpointHeaders } : {}),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const spec = await res.json();
-            setGroups(parseOpenApiSpec(spec));
-            setError(null);
-            setLoading(false);
-            retryCountRef.current = 0;
-        } catch (err) {
-            if (controller.signal.aborted && retryCountRef.current < MAX_RETRIES) {
-                // Server not ready yet — retry after delay
-                retryCountRef.current += 1;
-                retryTimerRef.current = setTimeout(() => void fetchSpec(true), RETRY_DELAY_MS);
-            } else {
-                setError(err instanceof Error && err.name !== 'AbortError' ? err.message : 'Could not reach backend — is it running?');
+    const fetchSpec = useCallback(
+        async (isRetry = false) => {
+            if (!specUrl) {
                 setGroups([]);
                 setLoading(false);
+                return;
             }
-        } finally {
-            clearTimeout(timeout);
-        }
-    }, [specUrl, endpointHeaders]);
+
+            if (!isRetry) {
+                retryCountRef.current = 0;
+                setError(null);
+            }
+
+            setLoading(true);
+
+            abortRef.current?.abort();
+            const controller = new AbortController();
+            abortRef.current = controller;
+            const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+            try {
+                const res = await fetch(specUrl, {
+                    signal: controller.signal,
+                    ...(endpointHeaders && Object.keys(endpointHeaders).length > 0 ? { headers: endpointHeaders } : {})
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const spec = await res.json();
+                setGroups(parseOpenApiSpec(spec));
+                setError(null);
+                setLoading(false);
+                retryCountRef.current = 0;
+            } catch (err) {
+                if (controller.signal.aborted && retryCountRef.current < MAX_RETRIES) {
+                    retryCountRef.current += 1;
+                    retryTimerRef.current = setTimeout(() => void fetchSpec(true), RETRY_DELAY_MS);
+                } else {
+                    setError(err instanceof Error && err.name !== 'AbortError' ? err.message : 'Could not reach backend — is it running?');
+                    setGroups([]);
+                    setLoading(false);
+                }
+            } finally {
+                clearTimeout(timeout);
+            }
+        },
+        [specUrl, endpointHeaders]
+    );
 
     useEffect(() => {
         void fetchSpec();

@@ -2,7 +2,7 @@
 
 import { GenerationProgress, Project } from '@/types/feathers';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, CheckCircle2, Code2, Cpu, FileCode2, Layers, RotateCcw, Sparkles, Zap, Clock, Terminal, Database, GitBranch, Activity } from 'lucide-react';
+import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock, Code2, Cpu, FileCode2, GitBranch, Layers, RotateCcw, Sparkles, Terminal, Zap } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 export interface ProjectCreationLoaderProps {
@@ -17,95 +17,59 @@ export interface ProjectCreationLoaderProps {
     onViewFiles?: () => void;
 }
 
-// Enhanced stage definitions with detailed descriptions
 const STAGES = [
-    { 
-        icon: Cpu, 
-        label: 'Analyzing prompt', 
+    {
+        icon: Cpu,
+        label: 'Analyzing prompt',
         key: 'analyzing',
         description: 'Understanding requirements and planning architecture',
         estimatedTime: '5-10s'
     },
-    { 
-        icon: Layers, 
-        label: 'Planning architecture', 
+    {
+        icon: Layers,
+        label: 'Planning architecture',
         key: 'planning',
         description: 'Designing system structure and dependencies',
         estimatedTime: '10-15s'
     },
-    { 
-        icon: FileCode2, 
-        label: 'Generating files', 
+    {
+        icon: FileCode2,
+        label: 'Generating files',
         key: 'generating',
         description: 'Creating project files and code',
         estimatedTime: '20-40s'
     },
-    { 
-        icon: Code2, 
-        label: 'Validating code', 
+    {
+        icon: Code2,
+        label: 'Validating code',
         key: 'validating',
         description: 'Checking code quality and consistency',
         estimatedTime: '5-10s'
     },
-    { 
-        icon: Zap, 
-        label: 'Finalizing project', 
+    {
+        icon: Zap,
+        label: 'Finalizing project',
         key: 'finalizing',
         description: 'Completing setup and preparing workspace',
         estimatedTime: '5-10s'
     }
 ];
 
-// Context-aware status messages inspired by Claude Code
 const CONTEXT_MESSAGES = {
-    analyzing: [
-        'Parsing your requirements...',
-        'Identifying key components...',
-        'Mapping out dependencies...',
-        'Understanding project scope...'
-    ],
-    planning: [
-        'Designing system architecture...',
-        'Planning data models...',
-        'Defining API structure...',
-        'Setting up project structure...'
-    ],
-    generating: [
-        'Creating configuration files...',
-        'Generating models and services...',
-        'Building API endpoints...',
-        'Writing database schemas...'
-    ],
-    validating: [
-        'Checking code consistency...',
-        'Validating imports...',
-        'Running quality checks...',
-        'Ensuring best practices...'
-    ],
-    finalizing: [
-        'Finalizing project setup...',
-        'Preparing workspace...',
-        'Optimizing configuration...',
-        'Almost ready...'
-    ]
+    analyzing: ['Parsing your requirements...', 'Identifying key components...', 'Mapping out dependencies...', 'Understanding project scope...'],
+    planning: ['Designing system architecture...', 'Planning data models...', 'Defining API structure...', 'Setting up project structure...'],
+    generating: ['Creating configuration files...', 'Generating models and services...', 'Building API endpoints...', 'Writing database schemas...'],
+    validating: ['Checking code consistency...', 'Validating imports...', 'Running quality checks...', 'Ensuring best practices...'],
+    finalizing: ['Finalizing project setup...', 'Preparing workspace...', 'Optimizing configuration...', 'Almost ready...']
 };
 
-// Tech stack indicators for visual interest
-const TECH_STACK = [
-    'FastAPI', 'Python', 'PostgreSQL', 'Redis', 'Docker', 'SQLAlchemy', 'Pydantic', 'JWT'
-];
+const TECH_STACK = ['FastAPI', 'Python', 'PostgreSQL', 'Redis', 'Docker', 'SQLAlchemy', 'Pydantic', 'JWT'];
 
-// Enhanced skeleton shimmer with smoother animation
 function SkeletonShimmer({ className }: { className?: string }) {
     const prefersReducedMotion = useReducedMotion();
 
     return (
-        <motion.div 
-            className={`relative overflow-hidden ${className}`} 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-        >
+        <motion.div className={`relative overflow-hidden ${className}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             {!prefersReducedMotion && (
                 <motion.div
@@ -118,7 +82,6 @@ function SkeletonShimmer({ className }: { className?: string }) {
     );
 }
 
-// Improved file skeleton with better visual feedback
 function FileSkeleton({ index, delay = 0 }: { index: number; delay?: number }) {
     const prefersReducedMotion = useReducedMotion();
 
@@ -126,8 +89,8 @@ function FileSkeleton({ index, delay = 0 }: { index: number; delay?: number }) {
         <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ 
-                delay: delay + index * 0.06, 
+            transition={{
+                delay: delay + index * 0.06,
                 duration: prefersReducedMotion ? 0 : 0.35,
                 ease: [0.22, 1, 0.36, 1]
             }}
@@ -143,7 +106,6 @@ function FileSkeleton({ index, delay = 0 }: { index: number; delay?: number }) {
     );
 }
 
-// Optimized floating particles with better performance
 function FloatingParticle({ index }: { index: number }) {
     const prefersReducedMotion = useReducedMotion();
 
@@ -153,7 +115,7 @@ function FloatingParticle({ index }: { index: number }) {
             const x = Math.sin(seed + n) * 10000;
             return x - Math.floor(x);
         };
-        
+
         return {
             size: random(1) * 2.5 + 0.8,
             x: random(2) * 100,
@@ -173,21 +135,17 @@ function FloatingParticle({ index }: { index: number }) {
                 bottom: '-4px',
                 opacity: particleProps.opacity
             }}
-            animate={prefersReducedMotion 
-                ? { y: -80, opacity: 0 } 
-                : { y: [0, -600], opacity: [particleProps.opacity, 0] }
-            }
-            transition={{ 
-                duration: prefersReducedMotion ? 1.5 : particleProps.duration, 
-                delay: particleProps.delay, 
-                repeat: Infinity, 
-                ease: 'linear' 
+            animate={prefersReducedMotion ? { y: -80, opacity: 0 } : { y: [0, -600], opacity: [particleProps.opacity, 0] }}
+            transition={{
+                duration: prefersReducedMotion ? 1.5 : particleProps.duration,
+                delay: particleProps.delay,
+                repeat: Infinity,
+                ease: 'linear'
             }}
         />
     );
 }
 
-// Enhanced code stream with better visual presentation
 function CodeStream() {
     const [lines, setLines] = useState<string[]>([]);
     const frameRef = useRef<NodeJS.Timeout | null>(null);
@@ -235,10 +193,10 @@ function CodeStream() {
         <div className="absolute inset-0 overflow-hidden opacity-[0.06] pointer-events-none select-none">
             <div className="font-mono text-[10px] leading-5 text-violet-300 p-6 space-y-0.5">
                 {lines.map((line, i) => (
-                    <motion.div 
-                        key={i} 
-                        initial={{ opacity: 0, x: -8 }} 
-                        animate={{ opacity: 1, x: 0 }} 
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: prefersReducedMotion ? 0 : 0.25 }}
                         className="truncate"
                     >
@@ -250,7 +208,6 @@ function CodeStream() {
     );
 }
 
-// Context-aware message bubble
 function ContextMessage({ stage }: { stage: string }) {
     const [messageIndex, setMessageIndex] = useState(0);
     const prefersReducedMotion = useReducedMotion();
@@ -279,7 +236,6 @@ function ContextMessage({ stage }: { stage: string }) {
     );
 }
 
-// Enhanced circular progress with better visual feedback
 function CircularProgress({ percentage, size = 72, strokeWidth = 5 }: { percentage: number; size?: number; strokeWidth?: number }) {
     const prefersReducedMotion = useReducedMotion();
     const radius = (size - strokeWidth) / 2;
@@ -289,14 +245,7 @@ function CircularProgress({ percentage, size = 72, strokeWidth = 5 }: { percenta
     return (
         <div className="relative" style={{ width: size, height: size }}>
             <svg width={size} height={size} className="transform -rotate-90">
-                <circle 
-                    cx={size / 2} 
-                    cy={size / 2} 
-                    r={radius} 
-                    stroke="rgba(255,255,255,0.08)" 
-                    strokeWidth={strokeWidth} 
-                    fill="none" 
-                />
+                <circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} fill="none" />
                 <motion.circle
                     cx={size / 2}
                     cy={size / 2}
@@ -319,11 +268,7 @@ function CircularProgress({ percentage, size = 72, strokeWidth = 5 }: { percenta
                 </defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-                <motion.span 
-                    className="text-[15px] font-bold text-white" 
-                    animate={prefersReducedMotion ? {} : { scale: [1, 1.03, 1] }} 
-                    transition={{ duration: 0.25 }}
-                >
+                <motion.span className="text-[15px] font-bold text-white" animate={prefersReducedMotion ? {} : { scale: [1, 1.03, 1] }} transition={{ duration: 0.25 }}>
                     {Math.round(percentage)}%
                 </motion.span>
             </div>
@@ -331,7 +276,6 @@ function CircularProgress({ percentage, size = 72, strokeWidth = 5 }: { percenta
     );
 }
 
-// Smooth pulse ring effect
 function PulseRing({ active, color = 'violet' }: { active: boolean; color?: 'violet' | 'green' | 'red' }) {
     const prefersReducedMotion = useReducedMotion();
 
@@ -359,7 +303,6 @@ function PulseRing({ active, color = 'violet' }: { active: boolean; color?: 'vio
     );
 }
 
-// Staggered animation wrapper with better timing
 function StaggeredChildren({ children, delay = 0.05 }: { children: React.ReactNode; delay?: number }) {
     const prefersReducedMotion = useReducedMotion();
 
@@ -382,35 +325,29 @@ function StaggeredChildren({ children, delay = 0.05 }: { children: React.ReactNo
     );
 }
 
-// Time estimation display
 function TimeEstimate({ stageIndex, isActive }: { stageIndex: number; isActive: boolean }) {
     if (!isActive || stageIndex >= STAGES.length) return null;
-    
+
     const stage = STAGES[stageIndex];
-    
+
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-1.5 text-[10px] text-white/30"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-[10px] text-white/30">
             <Clock className="w-3 h-3" />
             <span>{stage.estimatedTime}</span>
         </motion.div>
     );
 }
 
-// Main Project Creation Loader Component
-export function ProjectCreationLoader({ 
-    status, 
-    project, 
-    progress, 
-    error, 
-    onRetry, 
-    onBackToDashboard, 
-    onCancel, 
-    onViewArchitecture, 
-    onViewFiles 
+export function ProjectCreationLoader({
+    status,
+    project,
+    progress,
+    error,
+    onRetry,
+    onBackToDashboard,
+    onCancel,
+    onViewArchitecture,
+    onViewFiles
 }: ProjectCreationLoaderProps) {
     const isActive = status === 'creating' || status === 'generating';
     const isError = status === 'error';
@@ -421,7 +358,6 @@ export function ProjectCreationLoader({
     const activeStageIndex = Math.min(STAGES.length - 1, Math.floor((percentage / 100) * STAGES.length));
     const currentStage = STAGES[activeStageIndex];
 
-    // Animation variants
     const containerVariants = {
         hidden: { opacity: 0, y: 20, scale: 0.98 },
         visible: {
@@ -469,12 +405,7 @@ export function ProjectCreationLoader({
             />
 
             {/* Main card */}
-            <motion.div 
-                variants={containerVariants} 
-                initial="hidden" 
-                animate="visible" 
-                className="relative w-full max-w-md"
-            >
+            <motion.div variants={containerVariants} initial="hidden" animate="visible" className="relative w-full max-w-md">
                 {/* Border glow */}
                 <AnimatePresence>
                     {isActive && (
@@ -508,11 +439,7 @@ export function ProjectCreationLoader({
                                 <h1 className="text-[20px] font-semibold text-white tracking-tight">
                                     {isError ? 'Build failed' : isReady ? 'Ready to code' : 'Building your project'}
                                 </h1>
-                                {project?.name && (
-                                    <p className="text-[12px] text-white/35 mt-1 font-mono truncate max-w-[280px]">
-                                        {project.name.slice(0, 45)}
-                                    </p>
-                                )}
+                                {project?.name && <p className="text-[12px] text-white/35 mt-1 font-mono truncate max-w-[280px]">{project.name.slice(0, 45)}</p>}
                             </div>
 
                             {/* Status indicator */}
@@ -564,9 +491,7 @@ export function ProjectCreationLoader({
                                         animate={{ width: `${percentage}%` }}
                                         transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: 'easeOut' }}
                                         style={{
-                                            background: isReady 
-                                                ? '#22c55e' 
-                                                : 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 50%, #7c3aed 100%)',
+                                            background: isReady ? '#22c55e' : 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 50%, #7c3aed 100%)',
                                             backgroundSize: '200% 100%'
                                         }}
                                     >
@@ -672,11 +597,7 @@ export function ProjectCreationLoader({
                                                             </div>
                                                         )}
                                                     </div>
-                                                    {isCurrentStage && (
-                                                        <p className="text-[10px] text-white/35 mt-0.5 truncate">
-                                                            {stage.description}
-                                                        </p>
-                                                    )}
+                                                    {isCurrentStage && <p className="text-[10px] text-white/35 mt-0.5 truncate">{stage.description}</p>}
                                                 </div>
                                             </motion.div>
                                         );
@@ -705,9 +626,9 @@ export function ProjectCreationLoader({
                                     ))}
                                 </div>
                                 {progress?.currentStage && (
-                                    <motion.p 
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }} 
+                                    <motion.p
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
                                         className="text-[10px] text-white/25 font-mono mt-2 truncate flex items-center gap-1.5"
                                     >
                                         <Activity className="w-3 h-3" />
@@ -757,17 +678,12 @@ export function ProjectCreationLoader({
                             >
                                 <div className="p-4">
                                     <div className="flex items-start gap-3">
-                                        <motion.div 
-                                            animate={!prefersReducedMotion ? { rotate: [0, -8, 8, -8, 0] } : {}} 
-                                            transition={{ duration: 0.4 }}
-                                        >
+                                        <motion.div animate={!prefersReducedMotion ? { rotate: [0, -8, 8, -8, 0] } : {}} transition={{ duration: 0.4 }}>
                                             <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                                         </motion.div>
                                         <div className="flex-1">
                                             <p className="text-[13px] text-red-300 font-semibold mb-1">Build error</p>
-                                            <p className="text-[11px] text-red-400/75 leading-relaxed">
-                                                {error || 'An unexpected error occurred. Please try again.'}
-                                            </p>
+                                            <p className="text-[11px] text-red-400/75 leading-relaxed">{error || 'An unexpected error occurred. Please try again.'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -783,7 +699,12 @@ export function ProjectCreationLoader({
                                     >
                                         <span className="flex items-center gap-2">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                />
                                             </svg>
                                             View error details
                                         </span>
@@ -826,11 +747,7 @@ export function ProjectCreationLoader({
                                 transition={{ type: 'spring', stiffness: 180, damping: 15 }}
                                 className="bg-green-500/6 border border-green-500/12 rounded-xl p-4 mb-5 flex items-center gap-3"
                             >
-                                <motion.div 
-                                    initial={{ scale: 0 }} 
-                                    animate={{ scale: 1 }} 
-                                    transition={{ type: 'spring', stiffness: 180, damping: 12, delay: 0.08 }}
-                                >
+                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 12, delay: 0.08 }}>
                                     <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
                                 </motion.div>
                                 <div>

@@ -14,7 +14,7 @@ function seedParamsFromEndpoint(endpoint: EndpointDefinition): KeyValuePair[] {
             id: generateId(),
             key: p.name,
             value: String(p.example ?? ''),
-            enabled: p.required ?? false,
+            enabled: p.required ?? false
         }));
 }
 
@@ -44,10 +44,9 @@ export function useRequestCollection(groups: EndpointGroup[], baseUrl: string): 
         headers: [{ id: generateId(), key: 'Accept', value: 'application/json', enabled: true }],
         body: '',
         contentType: 'application/json',
-        auth: defaultAuth(),
+        auth: defaultAuth()
     });
 
-    // Seed first endpoint when groups load
     useEffect(() => {
         if (groups.length > 0 && !selectedEndpoint) {
             const first = groups[0]?.endpoints[0];
@@ -57,7 +56,7 @@ export function useRequestCollection(groups: EndpointGroup[], baseUrl: string): 
                     ...prev,
                     method: first.method,
                     url: `${baseUrl}${first.path}`,
-                    params: seedParamsFromEndpoint(first),
+                    params: seedParamsFromEndpoint(first)
                 }));
             }
         }
@@ -70,7 +69,7 @@ export function useRequestCollection(groups: EndpointGroup[], baseUrl: string): 
             method: endpoint.method,
             url: `${base}${endpoint.path}`,
             params: seedParamsFromEndpoint(endpoint),
-            body: '',
+            body: ''
         }));
     }, []);
 
@@ -92,6 +91,6 @@ export function useRequestCollection(groups: EndpointGroup[], baseUrl: string): 
         updateHeaders,
         updateBody,
         updateContentType,
-        updateAuth,
+        updateAuth
     };
 }

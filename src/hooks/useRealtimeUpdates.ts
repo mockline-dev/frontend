@@ -11,10 +11,6 @@ function useLatestRef<T>(value: T) {
     return ref;
 }
 
-/**
- * Hook for listening to Feathers service events with real-time updates
- * Supports server-side rendering by checking for browser environment
- */
 export const useRealtimeUpdates = <T>(
     serviceName: keyof typeof apiServices,
     eventType: ServiceEvent | string,
@@ -54,7 +50,6 @@ export const useRealtimeUpdates = <T>(
             service.on(eventType, handler);
 
             feathersClient.reAuthenticate().catch((error) => {
-                // Token may be missing in public routes; listeners are still attached.
                 console.debug(`[useRealtimeUpdates] Re-auth skipped for ${serviceName}:`, error);
             });
         };
@@ -73,10 +68,6 @@ export const useRealtimeUpdates = <T>(
     }, [serviceName, eventType, callbackRef, filterRef]);
 };
 
-/**
- * Hook for joining/leaving project channels for real-time updates
- * This is useful for receiving project-specific events
- */
 export const useProjectChannel = (projectId: string | null) => {
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -94,11 +85,9 @@ export const useProjectChannel = (projectId: string | null) => {
             console.log(`[useProjectChannel] Joined project channel: projects/${projectId}`);
         };
 
-        // Join project channel
         joinProject();
         socket.on('connect', joinProject);
 
-        // Cleanup: leave project channel on unmount or projectId change
         return () => {
             socket.off('connect', joinProject);
             socket.emit('leave', `projects/${projectId}`);
@@ -107,10 +96,6 @@ export const useProjectChannel = (projectId: string | null) => {
     }, [projectId]);
 };
 
-/**
- * Hook for listening to custom Socket.IO events (not Feathers service events)
- * Useful for project-level channel events that are emitted directly on the socket.
- */
 export const useSocketEvent = <T>(eventName: string, callback: (data: T) => void, filter?: (data: T) => boolean) => {
     const callbackRef = useLatestRef(callback);
     const filterRef = useLatestRef(filter);
@@ -139,9 +124,6 @@ export const useSocketEvent = <T>(eventName: string, callback: (data: T) => void
     }, [eventName, callbackRef, filterRef]);
 };
 
-/**
- * Hook for monitoring socket connection status
- */
 export const useSocketConnection = () => {
     useEffect(() => {
         if (typeof window === 'undefined') return;

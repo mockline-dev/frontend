@@ -10,13 +10,11 @@ import { useCallback, useState } from 'react';
 import { useRealtimeUpdates } from './useRealtimeUpdates';
 
 export interface UseFilesReturn {
-    // State
     files: ProjectFile[];
     loading: boolean;
     error: string | null;
     currentFile: ProjectFile | null;
 
-    // Methods
     loadFiles: (projectId: string, query?: FileQuery) => Promise<void>;
     loadFile: (fileId: string) => Promise<void>;
     createFile: (data: CreateFileData) => Promise<ProjectFile>;
@@ -32,10 +30,8 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
     const [error, setError] = useState<string | null>(null);
     const [currentFile, setCurrentFile] = useState<ProjectFile | null>(null);
 
-    // Check if we're in a browser environment
     const isBrowser = typeof window !== 'undefined';
 
-    // Load files for a project
     const loadFiles = useCallback(
         async (projectId: string, query?: FileQuery) => {
             if (!isBrowser) return;
@@ -48,7 +44,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
                 let skip = 0;
                 let allFiles: ProjectFile[] = [];
 
-                // Handle both paginated and non-paginated Feathers responses.
                 while (true) {
                     const result = await fetchFiles({
                         query: {
@@ -87,7 +82,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
         [isBrowser]
     );
 
-    // Load a single file
     const loadFile = useCallback(
         async (fileId: string) => {
             if (!isBrowser) return;
@@ -110,7 +104,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
         [isBrowser]
     );
 
-    // Create a new file
     const createFile = useCallback(
         async (data: CreateFileData): Promise<ProjectFile> => {
             if (!isBrowser) {
@@ -136,7 +129,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
         [isBrowser]
     );
 
-    // Update a file
     const updateFile = useCallback(
         async (fileId: string, data: UpdateFileData): Promise<ProjectFile> => {
             if (!isBrowser) {
@@ -163,7 +155,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
         [isBrowser]
     );
 
-    // Delete a file
     const deleteFile = useCallback(
         async (fileId: string): Promise<void> => {
             if (!isBrowser) {
@@ -189,7 +180,6 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
         [isBrowser]
     );
 
-    // Refresh files for a project
     const refresh = useCallback(
         async (projectId: string) => {
             await loadFiles(projectId);
@@ -212,13 +202,11 @@ export function useFiles(initialFiles: ProjectFile[] = []): UseFilesReturn {
     });
 
     return {
-        // State
         files,
         loading,
         error,
         currentFile,
 
-        // Methods
         loadFiles,
         loadFile,
         createFile,

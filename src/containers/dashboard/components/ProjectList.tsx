@@ -36,14 +36,12 @@ export function ProjectList({
     onCreateProject,
     formatTimeAgo
 }: ProjectListProps) {
-    // Filter projects based on search query and status
     const filteredProjects = projects.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.description.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
-    // Get recent projects (first 3)
     const recentProjects = projects.slice(0, 3);
     const displayedProjects = showAllProjects ? filteredProjects : recentProjects;
 

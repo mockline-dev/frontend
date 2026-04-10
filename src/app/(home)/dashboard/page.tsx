@@ -2,7 +2,7 @@ import { Dashboard } from '@/containers/dashboard/Dashboard';
 import { createFeathersServerClient } from '@/services/feathersServer';
 import { clearAuthAndRedirect, getCurrentUser } from '@/services/getCurrentUser';
 
-export const revalidate = 30; // ISR: revalidate every 30 seconds
+export const revalidate = 30;
 
 export default async function DashboardPage() {
     const currentUser = await getCurrentUser();
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
                 $limit: 10
             }
         });
-        // Use the server data directly - the Dashboard component will handle type compatibility
+
         initialProjects = result?.data || [];
     } catch (error) {
         console.error('Failed to load initial dashboard data:', error);
