@@ -1,3 +1,10 @@
+## Sanitized Public Repository Notice
+
+This repository is a sanitized public mirror of the internal frontend repository.
+Sensitive material has been removed from files and history, including secrets, private credentials, and API keys.
+
+---
+
 # Mockline — Frontend
 
 AI-powered fullstack IDE. Build, run, and iterate on backend services from the browser.
@@ -8,12 +15,7 @@ AI-powered fullstack IDE. Build, run, and iterate on backend services from the b
 - **Tailwind CSS 4** + **shadcn/ui** (zinc, new-york style)
 - **Feathers.js** over **Socket.io** for real-time API
 - **Firebase** authentication (Google OAuth)
-- # **Monaco Editor** · **xterm.js** · **@xyflow/react**
-
-## Sanitized Public Repository Notice
-
-This repository is a sanitized public mirror of the internal frontend repository.
-Sensitive material has been removed from files and history, including secrets, private credentials, and API keys.
+- **Monaco Editor** · **xterm.js** · **@xyflow/react**
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
