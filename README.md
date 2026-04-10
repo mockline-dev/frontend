@@ -1,5 +1,10 @@
 # Mockline — Frontend
 
+## Sanitized Public Repository Notice
+
+This repository is a sanitized public mirror of the internal frontend repository.
+Sensitive material has been removed from files and history, including secrets, private credentials, and API keys.
+
 AI-powered fullstack IDE. Build, run, and iterate on backend services from the browser.
 
 ## Stack
@@ -31,10 +36,10 @@ pnpm vitest       # Run tests
 
 ## Environment
 
-| Variable | Default |
-|---|---|
+| Variable                  | Default                 |
+| ------------------------- | ----------------------- |
 | `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:3030` |
-| `NEXT_PUBLIC_SOCKET_URL` | `http://localhost:3030` |
+| `NEXT_PUBLIC_SOCKET_URL`  | `http://localhost:3030` |
 
 Copy `.env.example` to `.env.local` and fill in Firebase credentials.
 
