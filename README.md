@@ -8,7 +8,14 @@ AI-powered fullstack IDE. Build, run, and iterate on backend services from the b
 - **Tailwind CSS 4** + **shadcn/ui** (zinc, new-york style)
 - **Feathers.js** over **Socket.io** for real-time API
 - **Firebase** authentication (Google OAuth)
-- **Monaco Editor** · **xterm.js** · **@xyflow/react**
+- # **Monaco Editor** · **xterm.js** · **@xyflow/react**
+
+## Sanitized Public Repository Notice
+
+This repository is a sanitized public mirror of the internal frontend repository.
+Sensitive material has been removed from files and history, including secrets, private credentials, and API keys.
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
@@ -31,10 +38,10 @@ pnpm vitest       # Run tests
 
 ## Environment
 
-| Variable | Default |
-|---|---|
+| Variable                  | Default                 |
+| ------------------------- | ----------------------- |
 | `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:3030` |
-| `NEXT_PUBLIC_SOCKET_URL` | `http://localhost:3030` |
+| `NEXT_PUBLIC_SOCKET_URL`  | `http://localhost:3030` |
 
 Copy `.env.example` to `.env.local` and fill in Firebase credentials.
 
